@@ -16,7 +16,7 @@ from service.prediction_service import PredictionService
 from backend.routes import (
     locations, predict, simulate, flood, compound,
     impact, alerts, train, evidence, sources, scorecard,
-    waterways
+    waterways, terrain
 )
 
 @asynccontextmanager
@@ -58,6 +58,7 @@ app.include_router(evidence.router, prefix="/api")
 app.include_router(sources.router, prefix="/api")
 app.include_router(scorecard.router, prefix="/api")
 app.include_router(waterways.router, prefix="/api")
+app.include_router(terrain.router, prefix="/api")
 
 @app.get("/api/health")
 def health():
