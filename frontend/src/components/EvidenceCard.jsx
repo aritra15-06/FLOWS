@@ -22,10 +22,10 @@ export default function EvidenceCard() {
   const physOut = pred?.prediction?.physics_output || {};
 
   const SOURCES = [
-    { name: 'Precipitation (IMD)', freshness: '2h', quality: 'HIGH', icon: '🌧' },
-    { name: 'Soil Moisture (SoilGrids)', freshness: '24h', quality: 'MEDIUM', icon: '🌍' },
-    { name: 'Terrain (Copernicus DEM)', freshness: 'Static', quality: 'HIGH', icon: '🏔' },
-    { name: 'Streamflow (CWC)', freshness: '4h', quality: 'MEDIUM', icon: '🌊' },
+    { name: 'Satellite DEM (Copernicus/SRTM)', freshness: 'Live DEM', quality: 'HIGH', icon: '🏔' },
+    { name: 'Satellite Orthophoto (Esri ArcGIS)', freshness: 'Sub-meter', quality: 'HIGH', icon: '🛰' },
+    { name: 'Drainage Network (OSM Overpass)', freshness: 'Live QL', quality: 'HIGH', icon: '🌊' },
+    { name: 'Base Cartography (OpenStreetMap)', freshness: 'Live Vector', quality: 'HIGH', icon: '🗺' },
   ];
 
   const qualityColor = q => q === 'HIGH' ? 'var(--confidence-high)' : q === 'MEDIUM' ? 'var(--confidence-medium)' : 'var(--confidence-low)';

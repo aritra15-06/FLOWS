@@ -64,9 +64,9 @@ export const apiClient = {
     }
   },
 
-  getSources: async () => {
+  getSources: async (refresh = false) => {
     try {
-      const res = await fetch(`${BASE_URL}/sources`);
+      const res = await fetch(`${BASE_URL}/sources${refresh ? '?refresh=true' : ''}`);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       return await res.json();
     } catch (err) {
