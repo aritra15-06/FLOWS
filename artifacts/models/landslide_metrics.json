@@ -1,0 +1,28 @@
+{
+  "dataset_rows": 3672,
+  "positive_events": 50,
+  "features_used": [
+    "elevation_m",
+    "slope_deg",
+    "aspect_deg",
+    "plan_curvature",
+    "profile_curvature",
+    "topographic_wetness_index",
+    "soil_cohesion_kpa",
+    "internal_friction_angle_deg",
+    "soil_unit_weight_kn_m3",
+    "hydraulic_conductivity_mm_h",
+    "rainfall_1h_mm",
+    "rainfall_24h_mm",
+    "rainfall_72h_mm",
+    "rainfall_7d_mm",
+    "rainfall_30d_mm",
+    "effective_saturation",
+    "pore_pressure_kpa",
+    "factor_of_safety"
+  ],
+  "model_A_auc": 1.0,
+  "model_B_auc": 1.0,
+  "physics_improvement_auc": 0.0,
+  "status": "trained_successfully"
+}

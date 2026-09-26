@@ -1,0 +1,18 @@
+{
+  "dataset_rows": 3672,
+  "positive_flood_events": 7,
+  "features_used": [
+    "catchment_area_km2",
+    "curve_number",
+    "topographic_wetness_index",
+    "stream_power_index",
+    "rainfall_1h_mm",
+    "rainfall_24h_mm",
+    "rainfall_72h_mm",
+    "effective_saturation",
+    "peak_discharge_m3s",
+    "inundation_depth_m"
+  ],
+  "flood_model_auc": 0.9997,
+  "status": "trained_successfully"
+}

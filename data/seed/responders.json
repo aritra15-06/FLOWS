@@ -1,0 +1,5 @@
+[
+    {"id": "r1", "name": "NDRF Battalion 2", "role": "Rescue Team", "phone": "+91-9999999999", "location": "Mangan"},
+    {"id": "r2", "name": "District Magistrate North Sikkim", "role": "Official", "phone": "+91-8888888888", "location": "Mangan"},
+    {"id": "r3", "name": "Sikkim Police - Chungthang", "role": "Police", "phone": "+91-7777777777", "location": "Chungthang"}
+]

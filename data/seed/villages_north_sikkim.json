@@ -1,0 +1,10 @@
+[
+    {"id": "v1", "name": "Chungthang", "lat": 27.601, "lon": 88.651, "population": 4000},
+    {"id": "v2", "name": "Lachung", "lat": 27.695, "lon": 88.746, "population": 2500},
+    {"id": "v3", "name": "Lachen", "lat": 27.729, "lon": 88.555, "population": 1000},
+    {"id": "v4", "name": "Mangan", "lat": 27.510, "lon": 88.532, "population": 5000},
+    {"id": "v5", "name": "Singtam", "lat": 27.233, "lon": 88.506, "population": 6000},
+    {"id": "v6", "name": "Rangpo", "lat": 27.177, "lon": 88.533, "population": 10000},
+    {"id": "v7", "name": "Dikchu", "lat": 27.385, "lon": 88.521, "population": 1500},
+    {"id": "v8", "name": "Phodong", "lat": 27.469, "lon": 88.518, "population": 2000}
+]
