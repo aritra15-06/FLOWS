@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import SimulationMapView, { EXTENDED_TEESTA_SYSTEM } from "./SimulationMapView";
+import SimulationTerrain3DView from "./SimulationTerrain3DView";
+import defaultSatelliteDem from "../data/sikkim_satellite_dem.json";
 import { SIKKIM_SETTLEMENTS, ROAD_CORRIDORS } from "../data/mockPopulation";
 import {
   getDailySimulationState,
@@ -228,12 +230,53 @@ function analyzeCustomCoordinates(lat, lng) {
   // 3. Trace Real OSM River Downstream (Only if actually adjacent <= 500m)
   const riverTrace = traceRiverDownstream(lat, lng, EXTENDED_TEESTA_SYSTEM);
 
-  const estimatedElevation = Math.round(1200 + (lat - 27.1) * 2200);
-  const estimatedSlope = Math.round(Math.max(14, Math.min(46, (lat - 27.0) * 38)));
+  // Dynamic Satellite DEM Elevation Sampling (SRTM / Copernicus 90m)
+  let satElevation = 1200;
+  let computedSlope = 32;
+  if (defaultSatelliteDem && defaultSatelliteDem.elevations) {
+    const minLat = defaultSatelliteDem.bbox?.minLat ?? 27.10;
+    const maxLat = defaultSatelliteDem.bbox?.maxLat ?? 27.75;
+    const minLng = defaultSatelliteDem.bbox?.minLng ?? 88.35;
+    const maxLng = defaultSatelliteDem.bbox?.maxLng ?? 88.85;
+    const grid = defaultSatelliteDem.grid_size || 25;
+
+    const normX = Math.max(0, Math.min(1, (lng - minLng) / (maxLng - minLng)));
+    const normZ = Math.max(0, Math.min(1, (maxLat - lat) / (maxLat - minLat)));
+
+    const gx = normX * (grid - 1);
+    const gz = normZ * (grid - 1);
+    const c0 = Math.floor(gx);
+    const c1 = Math.min(grid - 1, c0 + 1);
+    const r0 = Math.floor(gz);
+    const r1 = Math.min(grid - 1, r0 + 1);
+
+    const fx = gx - c0;
+    const fz = gz - r0;
+
+    const e00 = defaultSatelliteDem.elevations[r0 * grid + c0] ?? 1200;
+    const e10 = defaultSatelliteDem.elevations[r0 * grid + c1] ?? 1200;
+    const e01 = defaultSatelliteDem.elevations[r1 * grid + c0] ?? 1200;
+    const e11 = defaultSatelliteDem.elevations[r1 * grid + c1] ?? 1200;
+
+    const eTop = e00 * (1 - fx) + e10 * fx;
+    const eBot = e01 * (1 - fx) + e11 * fx;
+    satElevation = Math.round(eTop * (1 - fz) + eBot * fz);
+
+    // Compute terrain gradient slope in degrees from cell differences
+    const dxMeters = ((maxLng - minLng) / grid) * 111320 * Math.cos(lat * Math.PI / 180);
+    const dzMeters = ((maxLat - minLat) / grid) * 111320;
+    const gradX = Math.abs(e10 - e00) / dxMeters;
+    const gradZ = Math.abs(e01 - e00) / dzMeters;
+    const grad = Math.hypot(gradX, gradZ);
+    computedSlope = Math.max(6, Math.min(52, Math.round((Math.atan(grad) * 180 / Math.PI) * 4.2)));
+    if (riverTrace.isConnectedToRiver && satElevation < 600) {
+      computedSlope = Math.min(10, computedSlope); // River basin flat
+    }
+  }
 
   let typology = "LANDSLIDE_ONLY";
   let typologyLabel = "🏔️ Mountain Ridge / Pass";
-  if (riverTrace.isConnectedToRiver && estimatedSlope > 22) {
+  if (riverTrace.isConnectedToRiver && computedSlope > 22) {
     typology = "COMPOUND";
     typologyLabel = "🔮 Compound River Gorge";
   } else if (riverTrace.isConnectedToRiver) {
@@ -246,13 +289,13 @@ function analyzeCustomCoordinates(lat, lng) {
     nearestRoad,
     nearestRiver: riverTrace.nearestRiver,
     isConnectedToRiver: riverTrace.isConnectedToRiver,
+    elevation_m: satElevation,
+    slope_deg: computedSlope,
     downstreamRiverPath: riverTrace.downstreamRiverPath,
     downstreamRegions: riverTrace.downstreamRegions,
     downstreamVillages: riverTrace.downstreamVillages,
     typology,
     typologyLabel,
-    elevation_m: estimatedElevation,
-    slope_deg: estimatedSlope,
     connections: {
       isConnectedToRiver: riverTrace.isConnectedToRiver,
       feederVector: riverTrace.feederVector,
@@ -263,6 +306,7 @@ function analyzeCustomCoordinates(lat, lng) {
 }
 
 export default function SimulationWorkspace() {
+  const [viewDimension, setViewDimension] = useState("3d"); // "3d" | "2d"
   const [hazardMode, setHazardMode] = useState("compound"); // "compound" | "flood" | "landslide"
   const [showPeople, setShowPeople] = useState(true);
   const [showInfrastructure, setShowInfrastructure] = useState(true);
@@ -627,6 +671,19 @@ export default function SimulationWorkspace() {
                 >
                   🛣️ Highways: {showInfrastructure ? "ON" : "OFF"}
                 </button>
+                <button
+                  className={`sim-deck-pill-btn ${viewDimension === "3d" ? "active" : ""}`}
+                  onClick={() => setViewDimension(viewDimension === "3d" ? "2d" : "3d")}
+                  style={{
+                    fontWeight: 700,
+                    background: viewDimension === "3d" ? "#0284c7" : "#ffffff",
+                    color: viewDimension === "3d" ? "#ffffff" : "#0284c7",
+                    borderColor: "#0284c7",
+                  }}
+                  title="Toggle between 3D Satellite Terrain and 2D Leaflet Map"
+                >
+                  {viewDimension === "3d" ? "🏔️ 3D Terrain Model (Active)" : "🗺️ 2D Map View"}
+                </button>
               </div>
 
               {activeRedCount > 0 ? (
@@ -681,20 +738,41 @@ export default function SimulationWorkspace() {
 
         {/* Dedicated Map Body */}
         <div className="sim-map-view-body">
-          <SimulationMapView
-            sites={activeSimSites}
-            selectedSite={selectedSite}
-            onSelectSite={handleSelectFromMap}
-            showPeople={showPeople}
-            showInfrastructure={showInfrastructure}
-            hazardMode={hazardMode}
-            setHazardMode={setHazardMode}
-            isPickingLocation={isPickingLocation}
-            setIsPickingLocation={setIsPickingLocation}
-            onMapClick={handleAddCustomPoint}
-            customSites={customSites}
-            onClearCustomSites={handleClearCustomSites}
-          />
+          {viewDimension === "3d" ? (
+            <SimulationTerrain3DView
+              sites={activeSimSites}
+              selectedSite={selectedSite}
+              onSelectSite={handleSelectFromMap}
+              showPeople={showPeople}
+              showInfrastructure={showInfrastructure}
+              hazardMode={hazardMode}
+              setHazardMode={setHazardMode}
+              isPickingLocation={isPickingLocation}
+              setIsPickingLocation={setIsPickingLocation}
+              onMapClick={handleAddCustomPoint}
+              customSites={customSites}
+              onClearCustomSites={handleClearCustomSites}
+              viewDimension={viewDimension}
+              setViewDimension={setViewDimension}
+            />
+          ) : (
+            <SimulationMapView
+              sites={activeSimSites}
+              selectedSite={selectedSite}
+              onSelectSite={handleSelectFromMap}
+              showPeople={showPeople}
+              showInfrastructure={showInfrastructure}
+              hazardMode={hazardMode}
+              setHazardMode={setHazardMode}
+              isPickingLocation={isPickingLocation}
+              setIsPickingLocation={setIsPickingLocation}
+              onMapClick={handleAddCustomPoint}
+              customSites={customSites}
+              onClearCustomSites={handleClearCustomSites}
+              viewDimension={viewDimension}
+              setViewDimension={setViewDimension}
+            />
+          )}
         </div>
       </div>
 

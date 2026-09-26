@@ -89,6 +89,8 @@ export default function SimulationMapView({
   onMapClick,
   customSites = [],
   onClearCustomSites,
+  viewDimension,
+  setViewDimension,
 }) {
   const [mapLayer, setMapLayer] = useState("streets");
   const [internalHazardMode, setInternalHazardMode] = useState(hazardMode);
@@ -272,6 +274,17 @@ export default function SimulationMapView({
         >
           🌊 OSM Rivers {isLoadingWaterways ? "⏳" : "🟢"} ({waterways.length})
         </button>
+
+        {setViewDimension && (
+          <button
+            className="sim-mode-btn"
+            onClick={() => setViewDimension("3d")}
+            style={{ fontWeight: 700, color: "#0284c7", borderColor: "#0284c7", background: "#f0f9ff" }}
+            title="Switch to 3D Satellite Terrain Model with live DEM & rain/flood animations"
+          >
+            🏔️ 3D Terrain View
+          </button>
+        )}
 
         <div className="map-layer-switcher" style={{ position: "static" }}>
           <button
