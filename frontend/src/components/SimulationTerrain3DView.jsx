@@ -158,7 +158,6 @@ function createProceduralSatelliteTexture() {
   }
   ctx.putImageData(imgData, 0, 0);
 
-  // Snow on highest northern ridges
   const snowGrad = ctx.createRadialGradient(90, 60, 5, 90, 60, 75);
   snowGrad.addColorStop(0, "rgba(245, 248, 252, 0.9)");
   snowGrad.addColorStop(0.6, "rgba(215, 230, 245, 0.5)");
@@ -182,14 +181,12 @@ function createFlowingWaterTexture(isFloodSurge = false) {
 
   const grad = ctx.createLinearGradient(0, 0, 256, 0);
   if (isFloodSurge) {
-    // Churning muddy torrent with red/brown flood sediment
     grad.addColorStop(0, "#7f1d1d");
     grad.addColorStop(0.2, "#991b1b");
     grad.addColorStop(0.5, "#b91c1c");
     grad.addColorStop(0.8, "#991b1b");
     grad.addColorStop(1, "#7f1d1d");
   } else {
-    // Clear Himalayan glacial turquoise baseflow
     grad.addColorStop(0, "#0369a1");
     grad.addColorStop(0.2, "#0284c7");
     grad.addColorStop(0.5, "#38bdf8");
@@ -199,7 +196,6 @@ function createFlowingWaterTexture(isFloodSurge = false) {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 256, 1024);
 
-  // Foam streaks and turbulent rapids
   ctx.fillStyle = isFloodSurge ? "rgba(254, 226, 226, 0.55)" : "rgba(224, 242, 254, 0.35)";
   for (let y = 0; y < 1024; y += isFloodSurge ? 12 : 18) {
     const w = 40 + Math.random() * 85;
@@ -210,7 +206,6 @@ function createFlowingWaterTexture(isFloodSurge = false) {
     ctx.fill();
   }
 
-  // White water rapid crest highlights
   ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
   ctx.lineWidth = isFloodSurge ? 2.5 : 1.8;
   for (let y = 10; y < 1024; y += isFloodSurge ? 18 : 28) {
@@ -259,6 +254,19 @@ export default function SimulationTerrain3DView({
   const normalWaterTexRef = useRef(null);
   const floodWaterTexRef = useRef(null);
 
+  // Synchronized callback refs to eliminate stale closure bugs
+  const isPickingLocationRef = useRef(isPickingLocation);
+  useEffect(() => { isPickingLocationRef.current = isPickingLocation; }, [isPickingLocation]);
+
+  const onMapClickRef = useRef(onMapClick);
+  useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
+
+  const onSelectSiteRef = useRef(onSelectSite);
+  useEffect(() => { onSelectSiteRef.current = onSelectSite; }, [onSelectSite]);
+
+  const setIsPickingLocationRef = useRef(setIsPickingLocation);
+  useEffect(() => { setIsPickingLocationRef.current = setIsPickingLocation; }, [setIsPickingLocation]);
+
   // View state
   const [textureMode, setTextureMode] = useState("satellite"); // "satellite" | "topo" | "hazard"
   const [vertExaggeration, setVertExaggeration] = useState(1.4);
@@ -269,7 +277,6 @@ export default function SimulationTerrain3DView({
   const [hoveredInfo, setHoveredInfo] = useState(null);
   const [satelliteData, setSatelliteData] = useState(defaultSatelliteDem);
 
-  // Check if any site has catastrophic/overbank flood surge
   const hasActiveFloodSurge = Object.values(sites).some(
     (s) => s?.river_stage_state === "OVERBANK_FLOODING" || s?.river_stage_state === "CATASTROPHIC_SURGE"
   );
@@ -317,7 +324,13 @@ export default function SimulationTerrain3DView({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.domElement.style.position = "absolute";
+    renderer.domElement.style.top = "0";
+    renderer.domElement.style.left = "0";
+    renderer.domElement.style.width = "100%";
+    renderer.domElement.style.height = "100%";
     renderer.domElement.style.display = "block";
+    renderer.domElement.style.zIndex = "1";
     el.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -335,7 +348,7 @@ export default function SimulationTerrain3DView({
     fillLight.position.set(-45, 50, -35);
     scene.add(fillLight);
 
-    // Terrain Geometry (Deformed with authentic satellite DEM)
+    // Terrain Geometry
     const geo = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE, SEGS, SEGS);
     geo.rotateX(-Math.PI / 2);
     geoRef.current = geo;
@@ -345,7 +358,6 @@ export default function SimulationTerrain3DView({
     const baseHeights = new Float32Array(count);
     const topoColors = new Float32Array(count * 3);
 
-    // Extract real OSM Teesta polyline
     const riverRaw = satelliteData.teesta_trunk || defaultSatelliteDem.teesta_trunk || [];
     const river3D = riverRaw.map((pt) => {
       const { x, z, normX, normZ } = geoTo3D(pt[0], pt[1]);
@@ -357,7 +369,6 @@ export default function SimulationTerrain3DView({
     const minElev = satelliteData.min_elevation || 262;
     const maxElev = satelliteData.max_elevation || 5473;
 
-    // Deform vertices with real satellite elevations & carve canyon
     for (let i = 0; i < count; i++) {
       const vx = pos.getX(i);
       const vz = pos.getZ(i);
@@ -381,7 +392,6 @@ export default function SimulationTerrain3DView({
       baseHeights[i] = carvedY;
       pos.setY(i, carvedY * vertExaggeration);
 
-      // Hypsometric colors
       let r, g, b;
       if (hMeters < 600) { r = 0.22; g = 0.62; b = 0.36; }
       else if (hMeters < 1500) { r = 0.28; g = 0.54; b = 0.26; }
@@ -397,7 +407,6 @@ export default function SimulationTerrain3DView({
     geo.setAttribute("color", new THREE.BufferAttribute(topoColors, 3));
     geo.computeVertexNormals();
 
-    // Textures & Materials
     const fallbackSatTexture = createProceduralSatelliteTexture();
     const satMaterial = new THREE.MeshStandardMaterial({
       map: fallbackSatTexture,
@@ -410,7 +419,6 @@ export default function SimulationTerrain3DView({
       metalness: 0.05,
     });
 
-    // Dynamic Hazard Risk Heatmap Material
     const hazardCanvas = document.createElement("canvas");
     hazardCanvas.width = 512;
     hazardCanvas.height = 512;
@@ -441,20 +449,17 @@ export default function SimulationTerrain3DView({
     scene.add(terrainMesh);
     meshRef.current = terrainMesh;
 
-    // Wireframe overlay
     const wireGeo = new THREE.WireframeGeometry(geo);
     const wireMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.16 });
     const wireMesh = new THREE.LineSegments(wireGeo, wireMat);
     wireMesh.visible = false;
     scene.add(wireMesh);
 
-    // River Textures (Baseflow vs High Flood Surge)
     const normalWaterTex = createFlowingWaterTexture(false);
     const floodWaterTex = createFlowingWaterTexture(true);
     normalWaterTexRef.current = normalWaterTex;
     floodWaterTexRef.current = floodWaterTex;
 
-    // Build 3D River Ribbon from OSM Polyline
     if (river3D.length > 2) {
       const riverPtsCount = river3D.length;
       const riverGeo = new THREE.BufferGeometry();
@@ -538,7 +543,6 @@ export default function SimulationTerrain3DView({
       riverMeshRef.current = riverMesh;
     }
 
-    // Stream Live ArcGIS Satellite Orthophoto
     const texLoader = new THREE.TextureLoader();
     texLoader.setCrossOrigin("anonymous");
     texLoader.load(
@@ -554,7 +558,7 @@ export default function SimulationTerrain3DView({
       (err) => console.info("ArcGIS satellite texture note:", err)
     );
 
-    // Highway Corridors (NH-10 & SH-1/2) in 3D
+    // Highway Corridors in 3D
     if (showInfrastructure) {
       ROAD_CORRIDORS.forEach((road) => {
         const rPts = road.points || [];
@@ -576,7 +580,7 @@ export default function SimulationTerrain3DView({
       });
     }
 
-    // Sikkim Settlement Villages in 3D
+    // Settlements in 3D
     if (showInfrastructure) {
       SIKKIM_SETTLEMENTS.forEach((town) => {
         const { x, z, normX, normZ } = geoTo3D(town.latitude, town.longitude);
@@ -593,7 +597,7 @@ export default function SimulationTerrain3DView({
       });
     }
 
-    // Human Citizens in 3D
+    // Citizens in 3D
     if (showPeople) {
       MOCK_POPULATION.slice(0, 15).forEach((citizen) => {
         const { x, z, normX, normZ } = geoTo3D(citizen.latitude, citizen.longitude);
@@ -624,7 +628,7 @@ export default function SimulationTerrain3DView({
       mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
 
-      if (isPickingLocation) {
+      if (isPickingLocationRef.current) {
         renderer.domElement.style.cursor = "crosshair";
         return;
       }
@@ -641,20 +645,26 @@ export default function SimulationTerrain3DView({
       }
     };
 
+    let mouseDownPos = { x: 0, y: 0 };
     const onClick = (e) => {
+      // Check if mouse moved during press (ignore drag events as clicks)
+      if (Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y) > 6) {
+        return;
+      }
+
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
 
       // Handle custom site dropping
-      if (isPickingLocation && onMapClick && meshRef.current) {
+      if (isPickingLocationRef.current && onMapClickRef.current && meshRef.current) {
         const hits = raycaster.intersectObject(meshRef.current);
         if (hits.length > 0) {
           const pt = hits[0].point;
           const { lat, lng } = threeToGeo(pt.x, pt.z);
-          onMapClick(lat, lng);
-          if (setIsPickingLocation) setIsPickingLocation(false);
+          onMapClickRef.current(lat, lng);
+          if (setIsPickingLocationRef.current) setIsPickingLocationRef.current(false);
           return;
         }
       }
@@ -664,8 +674,8 @@ export default function SimulationTerrain3DView({
       const hits = raycaster.intersectObjects(hitCandidates);
       if (hits.length > 0) {
         const hitGroup = hits[0].object.parent;
-        if (onSelectSite && hitGroup.userData.siteId) {
-          onSelectSite(hitGroup.userData.siteId);
+        if (onSelectSiteRef.current && hitGroup.userData.siteId) {
+          onSelectSiteRef.current(hitGroup.userData.siteId);
         }
       }
     };
@@ -682,6 +692,7 @@ export default function SimulationTerrain3DView({
 
     const onMouseDown = (e) => {
       isDragging = true;
+      mouseDownPos = { x: e.clientX, y: e.clientY };
       prevMouse = { x: e.clientX, y: e.clientY };
       renderer.domElement.style.cursor = "grabbing";
     };
@@ -693,7 +704,7 @@ export default function SimulationTerrain3DView({
     };
     const onMouseUp = () => {
       isDragging = false;
-      renderer.domElement.style.cursor = isPickingLocation ? "crosshair" : "grab";
+      renderer.domElement.style.cursor = isPickingLocationRef.current ? "crosshair" : "grab";
     };
     const onWheel = (e) => {
       e.preventDefault();
@@ -705,7 +716,7 @@ export default function SimulationTerrain3DView({
     window.addEventListener("mouseup", onMouseUp);
     renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
 
-    // Animation Loop with 3D Flowing Water, Raindrops & Flood Surge Simulation
+    // Animation Loop
     let clock = 0;
     const animate = () => {
       frameRef.current = requestAnimationFrame(animate);
@@ -720,7 +731,6 @@ export default function SimulationTerrain3DView({
       camera.position.z = radius * Math.cos(theta) * Math.cos(phi);
       camera.lookAt(0, 8, 0);
 
-      // Flowing water UV translation along OSM river curves
       const speedMult = hasActiveFloodSurge ? 2.8 : 1.0;
       if (normalWaterTexRef.current) {
         normalWaterTexRef.current.offset.y -= 0.0045 * flowSpeed * speedMult;
@@ -729,7 +739,6 @@ export default function SimulationTerrain3DView({
         floodWaterTexRef.current.offset.y -= 0.0045 * flowSpeed * speedMult;
       }
 
-      // Shimmer river wave ripples
       if (riverMeshRef.current && riverMeshRef.current.geometry) {
         const rPos = riverMeshRef.current.geometry.attributes.position;
         if (rPos && !riverMeshRef.current._baseY) {
@@ -748,18 +757,15 @@ export default function SimulationTerrain3DView({
         }
       }
 
-      // Animate 3D Raining Clouds (Falling Rain Particles + Lightning Flashes)
+      // Animate 3D Raining Clouds
       if (cloudObjectsRef.current.length > 0) {
         cloudObjectsRef.current.forEach((cObj) => {
-          // Bob cloud slightly
           cObj.cloudGroup.position.y = cObj.baseY + Math.sin(clock * 2.0 + cObj.seed) * 0.35;
 
-          // Animate falling rain particles
           if (cObj.rainGeo) {
             const rPositions = cObj.rainGeo.attributes.position.array;
             for (let pIdx = 0; pIdx < rPositions.length / 3; pIdx++) {
               rPositions[pIdx * 3 + 1] -= cObj.rainSpeed * 0.016;
-              // Reset raindrop back to cloud bottom when it hits terrain
               if (rPositions[pIdx * 3 + 1] < cObj.groundY) {
                 rPositions[pIdx * 3 + 1] = cObj.baseY - 1.5;
               }
@@ -767,7 +773,6 @@ export default function SimulationTerrain3DView({
             cObj.rainGeo.attributes.position.needsUpdate = true;
           }
 
-          // Animate lightning flash for heavy storms
           if (cObj.lightningLight && cObj.isHeavyStorm) {
             if (Math.random() < 0.035) {
               cObj.lightningLight.intensity = 3.5 + Math.random() * 2.0;
@@ -834,7 +839,6 @@ export default function SimulationTerrain3DView({
     const scene = sceneRef.current;
     if (!scene) return;
 
-    // Clear previous markers, clouds, and flood surge meshes
     markersRef.current.forEach((m) => scene.remove(m));
     markersRef.current = [];
 
@@ -852,7 +856,6 @@ export default function SimulationTerrain3DView({
     const minElev = satelliteData.min_elevation || 262;
     const maxElev = satelliteData.max_elevation || 5473;
 
-    // Switch river texture if flood surge active
     if (riverMeshRef.current) {
       riverMeshRef.current.material.map = hasActiveFloodSurge
         ? floodWaterTexRef.current
@@ -876,11 +879,9 @@ export default function SimulationTerrain3DView({
       const isSelected = selectedSite === siteId;
       const colorHex = new THREE.Color(getSiteDisplayColor(data));
 
-      // Pin Group
       const pinGroup = new THREE.Group();
       const pinScale = isSelected ? 1.35 : 1.0;
 
-      // Pin Head
       const headGeo = new THREE.SphereGeometry(1.6 * pinScale, 16, 16);
       const headMat = new THREE.MeshStandardMaterial({
         color: colorHex,
@@ -891,14 +892,12 @@ export default function SimulationTerrain3DView({
       const headMesh = new THREE.Mesh(headGeo, headMat);
       headMesh.position.y = 4.2 * pinScale;
 
-      // Pin Stem
       const stemGeo = new THREE.ConeGeometry(0.7 * pinScale, 4.2 * pinScale, 8);
       stemGeo.rotateX(Math.PI);
       const stemMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
       const stemMesh = new THREE.Mesh(stemGeo, stemMat);
       stemMesh.position.y = 2.1 * pinScale;
 
-      // Glowing Ground Beacon Ring
       const ringGeo = new THREE.RingGeometry(1.2 * pinScale, 2.2 * pinScale, 16);
       ringGeo.rotateX(-Math.PI / 2);
       const ringMat = new THREE.MeshBasicMaterial({
@@ -937,14 +936,12 @@ export default function SimulationTerrain3DView({
         const cloudGroup = new THREE.Group();
         const cloudAltitude = siteAltitude + 12.0;
 
-        // Puffy volumetric 3D Cloud Mesh
         const cloudMat = new THREE.MeshStandardMaterial({
           color: isHeavyStorm ? 0x1e293b : 0x475569,
           roughness: 0.85,
           metalness: 0.05,
         });
 
-        // Merged puffs
         const puff1 = new THREE.Mesh(new THREE.SphereGeometry(3.6, 12, 12), cloudMat);
         const puff2 = new THREE.Mesh(new THREE.SphereGeometry(2.6, 10, 10), cloudMat);
         puff2.position.set(2.4, 0.4, 0.5);
@@ -960,7 +957,6 @@ export default function SimulationTerrain3DView({
         cloudGroup.position.set(x, cloudAltitude, z);
         scene.add(cloudGroup);
 
-        // 3D Rain Particle System
         const rainCount = isHeavyStorm ? 300 : 160;
         const rainGeo = new THREE.BufferGeometry();
         const rainVerts = new Float32Array(rainCount * 3);
@@ -979,7 +975,6 @@ export default function SimulationTerrain3DView({
         const rainPoints = new THREE.Points(rainGeo, rainMat);
         scene.add(rainPoints);
 
-        // Lightning flash point light for heavy storm
         let lightningLight = null;
         if (isHeavyStorm) {
           lightningLight = new THREE.PointLight(0xfef08a, 0, 30);
@@ -1006,7 +1001,6 @@ export default function SimulationTerrain3DView({
         data?.river_stage_state === "CATASTROPHIC_SURGE";
 
       if (isOverbank) {
-        // Expandable pulsing flood inundation buffer plane
         const floodGeo = new THREE.CircleGeometry(4.8, 24);
         floodGeo.rotateX(-Math.PI / 2);
         const floodMat = new THREE.MeshBasicMaterial({
@@ -1033,6 +1027,40 @@ export default function SimulationTerrain3DView({
       meshRef.current.material.needsUpdate = true;
     }
   }, [textureMode]);
+
+  // Update Vertical Relief Exaggeration
+  useEffect(() => {
+    if (!geoRef.current || !baseHeightsRef.current.length) return;
+    const geo = geoRef.current;
+    const pos = geo.attributes.position;
+    const baseH = baseHeightsRef.current;
+
+    for (let i = 0; i < pos.count; i++) {
+      pos.setY(i, baseH[i] * vertExaggeration);
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+
+    if (riverMeshRef.current && riverMeshRef.current.geometry) {
+      const rPos = riverMeshRef.current.geometry.attributes.position;
+      const bY = riverMeshRef.current._baseY;
+      if (bY) {
+        for (let k = 0; k < rPos.count; k++) {
+          rPos.setY(k, bY[k] * (vertExaggeration / 1.4));
+        }
+        rPos.needsUpdate = true;
+      }
+    }
+
+    if (markersRef.current) {
+      markersRef.current.forEach((pin) => {
+        if (pin.userData && pin.userData.baseY) {
+          const scaledY = pin.userData.baseY * (vertExaggeration / 1.4);
+          pin.position.y = scaledY;
+        }
+      });
+    }
+  }, [vertExaggeration]);
 
   // Update Wireframe
   useEffect(() => {
@@ -1073,7 +1101,7 @@ export default function SimulationTerrain3DView({
           zIndex: 100,
         }}
       >
-        {/* Left: Texture Selector */}
+        {/* Left: Texture Selector & Hazard Mode Option Buttons */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>
             3D Terrain:
@@ -1124,6 +1152,37 @@ export default function SimulationTerrain3DView({
             📊 Hazard Threat
           </button>
 
+          {/* Hazard Mode Option Buttons (Compound, Landslide, Flood) */}
+          {setHazardMode && (
+            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "#f8fafc", padding: "2px 4px", borderRadius: 5, border: "1px solid #cbd5e1" }}>
+              <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#64748b", paddingLeft: 2 }}>Option:</span>
+              {[
+                { id: "compound", label: "🔮 Compound" },
+                { id: "landslide", label: "🏔️ Landslide" },
+                { id: "flood", label: "🌊 Flood" },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setHazardMode(m.id)}
+                  style={{
+                    padding: "3px 7px",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    borderRadius: 4,
+                    border: hazardMode === m.id ? "1px solid #0f172a" : "1px solid transparent",
+                    background: hazardMode === m.id ? "#0f172a" : "transparent",
+                    color: hazardMode === m.id ? "#ffffff" : "#475569",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 2D Map Switcher Button */}
           {setViewDimension && (
             <button
               onClick={() => setViewDimension("2d")}
