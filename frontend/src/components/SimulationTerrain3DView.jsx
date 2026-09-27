@@ -266,6 +266,17 @@ export default function SimulationTerrain3DView({
   onClearCustomSites,
   viewDimension,
   setViewDimension,
+  // 3D Controls passed from SimulationWorkspace upper deck
+  textureMode: propTextureMode,
+  setTextureMode: propSetTextureMode,
+  vertExaggeration: propVertExaggeration,
+  setVertExaggeration: propSetVertExaggeration,
+  showWireframe: propShowWireframe,
+  setShowWireframe: propSetShowWireframe,
+  autoRotate: propAutoRotate,
+  setAutoRotate: propSetAutoRotate,
+  flowSpeed: propFlowSpeed,
+  setFlowSpeed: propSetFlowSpeed,
 }) {
   const mountRef = useRef(null);
   const rendererRef = useRef(null);
@@ -276,9 +287,15 @@ export default function SimulationTerrain3DView({
   const geoRef = useRef(null);
   const baseHeightsRef = useRef([]);
   const materialsRef = useRef({});
+
+  // Persistent Object Pools for high-performance 60 FPS animation (No allocation thrashing)
   const markersRef = useRef([]);
+  const markersMapRef = useRef({});
   const cloudObjectsRef = useRef([]);
+  const cloudsMapRef = useRef({});
   const floodSurgeMeshesRef = useRef([]);
+  const floodMeshesMapRef = useRef({});
+
   const riverGroupRef = useRef(null);
   const normalWaterTexRef = useRef(null);
   const floodWaterTexRef = useRef(null);
@@ -286,6 +303,7 @@ export default function SimulationTerrain3DView({
   const floodWaterMatRef = useRef(null);
   const hazardCanvasRef = useRef(null);
   const hazardTextureRef = useRef(null);
+  const heatmapTimerRef = useRef(null);
 
   // Synchronized callback refs to eliminate stale closure bugs
   const isPickingLocationRef = useRef(isPickingLocation);
@@ -300,30 +318,37 @@ export default function SimulationTerrain3DView({
   const setIsPickingLocationRef = useRef(setIsPickingLocation);
   useEffect(() => { setIsPickingLocationRef.current = setIsPickingLocation; }, [setIsPickingLocation]);
 
-  // View state
-  const [textureMode, setTextureMode] = useState("hazard"); // "hazard" (default continuous risk raster) | "satellite" | "topo"
-  const inspectedCoordsRef = useRef(null);
-  const [vertExaggeration, setVertExaggeration] = useState(1.4);
+  // View state (uses props from upper menu with local fallbacks)
+  const [localTextureMode, setLocalTextureMode] = useState("satellite");
+  const textureMode = propTextureMode !== undefined ? propTextureMode : localTextureMode;
+  const setTextureMode = propSetTextureMode || setLocalTextureMode;
+
+  const [localVertExaggeration, setLocalVertExaggeration] = useState(1.4);
+  const vertExaggeration = propVertExaggeration !== undefined ? propVertExaggeration : localVertExaggeration;
+  const setVertExaggeration = propSetVertExaggeration || setLocalVertExaggeration;
   const vertExaggerationRef = useRef(vertExaggeration);
   useEffect(() => { vertExaggerationRef.current = vertExaggeration; }, [vertExaggeration]);
-  const [showWireframe, setShowWireframe] = useState(false);
-  const [autoRotate, setAutoRotate] = useState(false);
+
+  const [localShowWireframe, setLocalShowWireframe] = useState(false);
+  const showWireframe = propShowWireframe !== undefined ? propShowWireframe : localShowWireframe;
+  const setShowWireframe = propSetShowWireframe || setLocalShowWireframe;
+
+  const [localAutoRotate, setLocalAutoRotate] = useState(false);
+  const autoRotate = propAutoRotate !== undefined ? propAutoRotate : localAutoRotate;
+  const setAutoRotate = propSetAutoRotate || setLocalAutoRotate;
   const autoRotateRef = useRef(autoRotate);
   useEffect(() => { autoRotateRef.current = autoRotate; }, [autoRotate]);
 
-  const [flowSpeed, setFlowSpeed] = useState(1.0);
+  const [localFlowSpeed, setLocalFlowSpeed] = useState(1.0);
+  const flowSpeed = propFlowSpeed !== undefined ? propFlowSpeed : localFlowSpeed;
+  const setFlowSpeed = propSetFlowSpeed || setLocalFlowSpeed;
   const flowSpeedRef = useRef(flowSpeed);
   useEffect(() => { flowSpeedRef.current = flowSpeed; }, [flowSpeed]);
 
   const [satStatus, setSatStatus] = useState("loading");
-  const [hoveredInfo, setHoveredInfo] = useState(null);
-  const [inspectedPoint, setInspectedPoint] = useState(null);
   const [satelliteData, setSatelliteData] = useState(defaultSatelliteDem);
   const [liveWaterways, setLiveWaterways] = useState([]);
 
-  const hasActiveFloodSurge = Object.values(sites).some(
-    (s) => s?.river_stage_state === "OVERBANK_FLOODING" || s?.river_stage_state === "CATASTROPHIC_SURGE"
-  );
 
   // 1. Ingest Live Satellite Elevation Data from Backend
   useEffect(() => {
@@ -494,8 +519,8 @@ export default function SimulationTerrain3DView({
     });
 
     const hazardCanvas = document.createElement("canvas");
-    hazardCanvas.width = 128;
-    hazardCanvas.height = 128;
+    hazardCanvas.width = 64;
+    hazardCanvas.height = 64;
     hazardCanvasRef.current = hazardCanvas;
 
     const allInitialSites = { ...sites };
@@ -665,14 +690,11 @@ export default function SimulationTerrain3DView({
         return;
       }
 
-      const hitCandidates = markersRef.current.map((g) => g.userData.headMesh).filter(Boolean);
+      const hitCandidates = markersRef.current.map((g) => g.userData?.headMesh).filter(Boolean);
       const hits = raycaster.intersectObjects(hitCandidates);
       if (hits.length > 0) {
-        const hitGroup = hits[0].object.parent;
-        setHoveredInfo(hitGroup.userData.siteData);
         renderer.domElement.style.cursor = "pointer";
       } else {
-        setHoveredInfo(null);
         renderer.domElement.style.cursor = "grab";
       }
     };
@@ -717,20 +739,6 @@ export default function SimulationTerrain3DView({
           const { lat, lng } = threeToGeo(hitPoint.x, hitPoint.z);
           const clampedLat = Math.max(BBOX.minLat + 0.01, Math.min(BBOX.maxLat - 0.01, lat));
           const clampedLng = Math.max(BBOX.minLng + 0.01, Math.min(BBOX.maxLng - 0.01, lng));
-          const allCurrentSites = { ...sites };
-          if (customSites && customSites.length > 0) {
-            customSites.forEach((cs) => { allCurrentSites[cs.id] = cs; });
-          }
-          const pointSev = calculatePointSeverity(
-            clampedLat,
-            clampedLng,
-            allCurrentSites,
-            satelliteData,
-            liveWaterways,
-            hazardMode
-          );
-          inspectedCoordsRef.current = { lat: clampedLat, lng: clampedLng, name: "Custom Point (Active Telemetry)" };
-          setInspectedPoint({ ...pointSev, name: "Custom Point (Active Telemetry)" });
           onMapClickRef.current(clampedLat, clampedLng);
           if (setIsPickingLocationRef.current) setIsPickingLocationRef.current(false);
           return;
@@ -738,47 +746,14 @@ export default function SimulationTerrain3DView({
       }
 
       // Handle selecting existing site pin
-      const hitCandidates = markersRef.current.map((g) => g.userData.headMesh).filter(Boolean);
+      const hitCandidates = markersRef.current.map((g) => g.userData?.headMesh).filter(Boolean);
       const hits = raycaster.intersectObjects(hitCandidates);
       if (hits.length > 0) {
         const hitGroup = hits[0].object.parent;
-        if (onSelectSiteRef.current && hitGroup.userData.siteId) {
+        if (onSelectSiteRef.current && hitGroup.userData?.siteId) {
           onSelectSiteRef.current(hitGroup.userData.siteId);
-          setInspectedPoint(null);
-          inspectedCoordsRef.current = null;
         }
         return;
-      }
-
-      // Handle inspecting any clicked location directly on the terrain mesh / heatmap
-      if (meshRef.current) {
-        const terrainHits = raycaster.intersectObject(meshRef.current, false);
-        if (terrainHits.length > 0) {
-          const hit = terrainHits[0].point;
-          const { lat, lng } = threeToGeo(hit.x, hit.z);
-          if (
-            lat >= BBOX.minLat &&
-            lat <= BBOX.maxLat &&
-            lng >= BBOX.minLng &&
-            lng <= BBOX.maxLng
-          ) {
-            const allCurrentSites = { ...sites };
-            if (customSites && customSites.length > 0) {
-              customSites.forEach((cs) => { allCurrentSites[cs.id] = cs; });
-            }
-            const pointSev = calculatePointSeverity(
-              lat,
-              lng,
-              allCurrentSites,
-              satelliteData,
-              liveWaterways,
-              hazardMode
-            );
-            const locationLabel = pointSev.nearestSiteName ? `Terrain Spot (${pointSev.nearestSiteName})` : "Inspected Mountain Sector";
-            inspectedCoordsRef.current = { lat, lng, name: locationLabel };
-            setInspectedPoint({ ...pointSev, name: locationLabel });
-          }
-        }
       }
     };
 
@@ -834,27 +809,11 @@ export default function SimulationTerrain3DView({
       camera.lookAt(0, 8, 0);
 
       const currentFlow = flowSpeedRef.current;
-      if (normalWaterTexRef.current) {
+      if (normalWaterTexRef.current && currentFlow > 0) {
         normalWaterTexRef.current.offset.y -= 0.0045 * currentFlow;
       }
-      if (floodWaterTexRef.current) {
+      if (floodWaterTexRef.current && currentFlow > 0) {
         floodWaterTexRef.current.offset.y -= 0.009 * currentFlow; // Rapid torrential flash flood flow
-      }
-
-      // Animate flowing ripples across all live OSM river meshes
-      if (riverGroupRef.current) {
-        riverGroupRef.current.children.forEach((rMesh, meshIdx) => {
-          if (!rMesh.geometry) return;
-          const rPos = rMesh.geometry.attributes.position;
-          const bY = rMesh.userData?.baseY;
-          if (rPos && bY) {
-            for (let k = 0; k < rPos.count; k++) {
-              const ripple = Math.sin(clock * 5.5 + k * 0.35 + meshIdx) * 0.05 * currentFlow;
-              rPos.setY(k, bY[k] * vertExaggerationRef.current + ripple);
-            }
-            rPos.needsUpdate = true;
-          }
-        });
       }
 
       // Animate 3D Raining Clouds
@@ -941,35 +900,20 @@ export default function SimulationTerrain3DView({
     };
   }, [satelliteData, liveWaterways, showInfrastructure, showPeople]);
 
-  // 3. Rebuild 3D Site Pins, Clouds, and Flood Inundations when Simulation State Updates
+  // 3. Update 3D Site Pins, Clouds, and Flood Inundations efficiently without recreation thrashing
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
-
-    markersRef.current.forEach((m) => scene.remove(m));
-    markersRef.current = [];
-
-    cloudObjectsRef.current.forEach((c) => {
-      scene.remove(c.cloudGroup);
-      if (c.rainPoints) scene.remove(c.rainPoints);
-    });
-    cloudObjectsRef.current = [];
-
-    floodSurgeMeshesRef.current.forEach((f) => scene.remove(f));
-    floodSurgeMeshesRef.current = [];
 
     const elevations = satelliteData.elevations || defaultSatelliteDem.elevations;
     const gridSize = satelliteData.grid_size || defaultSatelliteDem.grid_size || 25;
     const minElev = satelliteData.min_elevation || 262;
     const maxElev = satelliteData.max_elevation || 5473;
 
-
-
     const allSitesMap = { ...sites };
     customSites.forEach((cs) => { allSitesMap[cs.id] = cs; });
 
     // Localized River Flash Flood Color Updating:
-    // Individual river reaches turn RED when rainfall and flash flood occur in their catchment
     if (riverGroupRef.current && normalWaterMatRef.current && floodWaterMatRef.current) {
       riverGroupRef.current.children.forEach((rMesh) => {
         const isFlooding = checkRiverFlooding(rMesh, allSitesMap);
@@ -981,6 +925,33 @@ export default function SimulationTerrain3DView({
       });
     }
 
+    // Clean up markers for removed custom sites
+    Object.keys(markersMapRef.current).forEach((sid) => {
+      if (!allSitesMap[sid]) {
+        const pin = markersMapRef.current[sid];
+        scene.remove(pin);
+        pin.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) child.material.forEach((m) => m.dispose());
+            else child.material.dispose();
+          }
+        });
+        delete markersMapRef.current[sid];
+
+        if (cloudsMapRef.current[sid]) {
+          scene.remove(cloudsMapRef.current[sid].cloudGroup);
+          if (cloudsMapRef.current[sid].rainPoints) scene.remove(cloudsMapRef.current[sid].rainPoints);
+          delete cloudsMapRef.current[sid];
+        }
+
+        if (floodMeshesMapRef.current[sid]) {
+          scene.remove(floodMeshesMapRef.current[sid]);
+          delete floodMeshesMapRef.current[sid];
+        }
+      }
+    });
+
     Object.entries(allSitesMap).forEach(([siteId, data], idx) => {
       const params = data?.current_params || data;
       const lat = Number(params?.latitude ?? params?.lat);
@@ -990,56 +961,71 @@ export default function SimulationTerrain3DView({
       const { x, z, normX, normZ } = geoTo3D(lat, lng);
       const { hMeters, yWorld } = sampleSatelliteElevation(normX, normZ, elevations, gridSize, minElev, maxElev);
       const siteAltitude = yWorld * vertExaggeration;
-
-      const isSelected = selectedSite === siteId;
       const colorHex = new THREE.Color(getSiteDisplayColor(data));
+      const isSelected = selectedSite === siteId;
 
-      const pinGroup = new THREE.Group();
-      const pinScale = isSelected ? 1.35 : 1.0;
+      let pinGroup = markersMapRef.current[siteId];
+      if (!pinGroup) {
+        // Create pin once!
+        pinGroup = new THREE.Group();
+        const pinScale = isSelected ? 1.35 : 1.0;
 
-      const headGeo = new THREE.SphereGeometry(1.6 * pinScale, 16, 16);
-      const headMat = new THREE.MeshStandardMaterial({
-        color: colorHex,
-        emissive: colorHex,
-        emissiveIntensity: 0.6,
-        roughness: 0.2,
-      });
-      const headMesh = new THREE.Mesh(headGeo, headMat);
-      headMesh.position.y = 4.2 * pinScale;
+        const headGeo = new THREE.SphereGeometry(1.6 * pinScale, 16, 16);
+        const headMat = new THREE.MeshStandardMaterial({
+          color: colorHex,
+          emissive: colorHex,
+          emissiveIntensity: 0.6,
+          roughness: 0.2,
+        });
+        const headMesh = new THREE.Mesh(headGeo, headMat);
+        headMesh.position.y = 4.2 * pinScale;
 
-      const stemGeo = new THREE.ConeGeometry(0.7 * pinScale, 4.2 * pinScale, 8);
-      stemGeo.rotateX(Math.PI);
-      const stemMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
-      const stemMesh = new THREE.Mesh(stemGeo, stemMat);
-      stemMesh.position.y = 2.1 * pinScale;
+        const stemGeo = new THREE.ConeGeometry(0.7 * pinScale, 4.2 * pinScale, 8);
+        stemGeo.rotateX(Math.PI);
+        const stemMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
+        const stemMesh = new THREE.Mesh(stemGeo, stemMat);
+        stemMesh.position.y = 2.1 * pinScale;
 
-      const ringGeo = new THREE.RingGeometry(1.2 * pinScale, 2.2 * pinScale, 16);
-      ringGeo.rotateX(-Math.PI / 2);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: colorHex,
-        transparent: true,
-        opacity: 0.75,
-        side: THREE.DoubleSide,
-      });
-      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-      ringMesh.position.y = 0.1;
+        const ringGeo = new THREE.RingGeometry(1.2 * pinScale, 2.2 * pinScale, 16);
+        ringGeo.rotateX(-Math.PI / 2);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: colorHex,
+          transparent: true,
+          opacity: 0.75,
+          side: THREE.DoubleSide,
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.position.y = 0.1;
 
-      pinGroup.add(headMesh);
-      pinGroup.add(stemMesh);
-      pinGroup.add(ringMesh);
-      pinGroup.position.set(x, siteAltitude, z);
+        pinGroup.add(headMesh);
+        pinGroup.add(stemMesh);
+        pinGroup.add(ringMesh);
+        pinGroup.position.set(x, siteAltitude, z);
 
-      pinGroup.userData = {
-        siteId,
-        siteData: data,
-        headMesh,
-        ringMesh,
-        baseY: siteAltitude,
-        satelliteElevation: Math.round(hMeters),
-      };
+        pinGroup.userData = {
+          siteId,
+          siteData: data,
+          headMesh,
+          ringMesh,
+          baseY: siteAltitude,
+          satelliteElevation: Math.round(hMeters),
+        };
 
-      scene.add(pinGroup);
-      markersRef.current.push(pinGroup);
+        scene.add(pinGroup);
+        markersMapRef.current[siteId] = pinGroup;
+      } else {
+        // Just update existing pin properties!
+        pinGroup.userData.siteData = data;
+        pinGroup.position.set(x, siteAltitude, z);
+        pinGroup.userData.baseY = siteAltitude;
+        if (pinGroup.userData.headMesh) {
+          pinGroup.userData.headMesh.material.color.copy(colorHex);
+          pinGroup.userData.headMesh.material.emissive.copy(colorHex);
+        }
+        if (pinGroup.userData.ringMesh) {
+          pinGroup.userData.ringMesh.material.color.copy(colorHex);
+        }
+      }
 
       // ── 3D CLOUD RAINING ANIMATION ──
       const rain1h = data?.rainfall_1h_mm ?? params?.rainfall_1h_mm ?? 0;
@@ -1047,67 +1033,71 @@ export default function SimulationTerrain3DView({
       const isRaining = rain1h >= 5.0 || rain24h >= 40.0;
       const isHeavyStorm = rain1h >= 16.0 || rain24h >= 100.0;
 
+      let cloudObj = cloudsMapRef.current[siteId];
       if (isRaining) {
-        const cloudGroup = new THREE.Group();
-        const cloudAltitude = siteAltitude + 12.0;
+        if (!cloudObj) {
+          const cloudGroup = new THREE.Group();
+          const cloudAltitude = siteAltitude + 12.0;
 
-        const cloudMat = new THREE.MeshStandardMaterial({
-          color: isHeavyStorm ? 0x1e293b : 0x475569,
-          roughness: 0.85,
-          metalness: 0.05,
-        });
+          const cloudMat = new THREE.MeshStandardMaterial({
+            color: isHeavyStorm ? 0x1e293b : 0x475569,
+            roughness: 0.85,
+            metalness: 0.05,
+          });
 
-        const puff1 = new THREE.Mesh(new THREE.SphereGeometry(3.6, 12, 12), cloudMat);
-        const puff2 = new THREE.Mesh(new THREE.SphereGeometry(2.6, 10, 10), cloudMat);
-        puff2.position.set(2.4, 0.4, 0.5);
-        const puff3 = new THREE.Mesh(new THREE.SphereGeometry(2.4, 10, 10), cloudMat);
-        puff3.position.set(-2.2, 0.2, -0.4);
-        const puff4 = new THREE.Mesh(new THREE.SphereGeometry(2.0, 10, 10), cloudMat);
-        puff4.position.set(0.6, 1.4, -0.6);
+          const puff1 = new THREE.Mesh(new THREE.SphereGeometry(3.6, 10, 10), cloudMat);
+          const puff2 = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8), cloudMat);
+          puff2.position.set(2.4, 0.4, 0.5);
+          const puff3 = new THREE.Mesh(new THREE.SphereGeometry(2.4, 8, 8), cloudMat);
+          puff3.position.set(-2.2, 0.2, -0.4);
+          const puff4 = new THREE.Mesh(new THREE.SphereGeometry(2.0, 8, 8), cloudMat);
+          puff4.position.set(0.6, 1.4, -0.6);
 
-        cloudGroup.add(puff1);
-        cloudGroup.add(puff2);
-        cloudGroup.add(puff3);
-        cloudGroup.add(puff4);
-        cloudGroup.position.set(x, cloudAltitude, z);
-        scene.add(cloudGroup);
+          cloudGroup.add(puff1);
+          cloudGroup.add(puff2);
+          cloudGroup.add(puff3);
+          cloudGroup.add(puff4);
+          cloudGroup.position.set(x, cloudAltitude, z);
+          scene.add(cloudGroup);
 
-        const rainCount = isHeavyStorm ? 300 : 160;
-        const rainGeo = new THREE.BufferGeometry();
-        const rainVerts = new Float32Array(rainCount * 3);
-        for (let rIdx = 0; rIdx < rainCount; rIdx++) {
-          rainVerts[rIdx * 3] = x + (Math.random() - 0.5) * 8.0;
-          rainVerts[rIdx * 3 + 1] = siteAltitude + Math.random() * 11.5;
-          rainVerts[rIdx * 3 + 2] = z + (Math.random() - 0.5) * 8.0;
+          const rainCount = 120;
+          const rainGeo = new THREE.BufferGeometry();
+          const rainVerts = new Float32Array(rainCount * 3);
+          for (let rIdx = 0; rIdx < rainCount; rIdx++) {
+            rainVerts[rIdx * 3] = x + (Math.random() - 0.5) * 8.0;
+            rainVerts[rIdx * 3 + 1] = siteAltitude + Math.random() * 11.5;
+            rainVerts[rIdx * 3 + 2] = z + (Math.random() - 0.5) * 8.0;
+          }
+          rainGeo.setAttribute("position", new THREE.BufferAttribute(rainVerts, 3));
+          const rainMat = new THREE.PointsMaterial({
+            color: 0x93c5fd,
+            size: 0.45,
+            transparent: true,
+            opacity: 0.75,
+          });
+          const rainPoints = new THREE.Points(rainGeo, rainMat);
+          scene.add(rainPoints);
+
+          cloudObj = {
+            cloudGroup,
+            rainPoints,
+            rainGeo,
+            groundY: siteAltitude,
+            baseY: cloudAltitude,
+            rainSpeed: 36.0,
+            seed: idx * 1.5,
+          };
+          cloudsMapRef.current[siteId] = cloudObj;
+        } else {
+          cloudObj.cloudGroup.visible = true;
+          if (cloudObj.rainPoints) cloudObj.rainPoints.visible = true;
+          cloudObj.cloudGroup.position.set(x, siteAltitude + 12.0, z);
+          cloudObj.groundY = siteAltitude;
+          cloudObj.baseY = siteAltitude + 12.0;
         }
-        rainGeo.setAttribute("position", new THREE.BufferAttribute(rainVerts, 3));
-        const rainMat = new THREE.PointsMaterial({
-          color: 0x93c5fd,
-          size: 0.45,
-          transparent: true,
-          opacity: 0.75,
-        });
-        const rainPoints = new THREE.Points(rainGeo, rainMat);
-        scene.add(rainPoints);
-
-        let lightningLight = null;
-        if (isHeavyStorm) {
-          lightningLight = new THREE.PointLight(0xfef08a, 0, 30);
-          lightningLight.position.set(x, cloudAltitude - 1.0, z);
-          scene.add(lightningLight);
-        }
-
-        cloudObjectsRef.current.push({
-          cloudGroup,
-          rainPoints,
-          rainGeo,
-          groundY: siteAltitude,
-          baseY: cloudAltitude,
-          rainSpeed: isHeavyStorm ? 48.0 : 32.0,
-          seed: idx * 1.5,
-          isHeavyStorm,
-          lightningLight,
-        });
+      } else if (cloudObj) {
+        cloudObj.cloudGroup.visible = false;
+        if (cloudObj.rainPoints) cloudObj.rainPoints.visible = false;
       }
 
       // ── 3D FLOOD INUNDATION ANIMATION ──
@@ -1115,29 +1105,43 @@ export default function SimulationTerrain3DView({
         data?.river_stage_state === "OVERBANK_FLOODING" ||
         data?.river_stage_state === "CATASTROPHIC_SURGE";
 
+      let floodMesh = floodMeshesMapRef.current[siteId];
       if (isOverbank) {
-        const floodGeo = new THREE.CircleGeometry(4.8, 24);
-        floodGeo.rotateX(-Math.PI / 2);
-        const floodMat = new THREE.MeshBasicMaterial({
-          color: 0x0284c7, // Realistic flood surge water blue
-          transparent: true,
-          opacity: 0.65,
-          side: THREE.DoubleSide,
-        });
-        const floodMesh = new THREE.Mesh(floodGeo, floodMat);
-        floodMesh.position.set(x, siteAltitude + 0.15, z);
-        floodMesh.userData = { seed: idx * 2.0 };
-        scene.add(floodMesh);
-        floodSurgeMeshesRef.current.push(floodMesh);
+        if (!floodMesh) {
+          const floodGeo = new THREE.CircleGeometry(4.8, 16);
+          floodGeo.rotateX(-Math.PI / 2);
+          const floodMat = new THREE.MeshBasicMaterial({
+            color: 0x0284c7,
+            transparent: true,
+            opacity: 0.65,
+            side: THREE.DoubleSide,
+          });
+          floodMesh = new THREE.Mesh(floodGeo, floodMat);
+          floodMesh.position.set(x, siteAltitude + 0.15, z);
+          floodMesh.userData = { seed: idx * 2.0 };
+          scene.add(floodMesh);
+          floodMeshesMapRef.current[siteId] = floodMesh;
+        } else {
+          floodMesh.visible = true;
+          floodMesh.position.set(x, siteAltitude + 0.15, z);
+        }
+      } else if (floodMesh) {
+        floodMesh.visible = false;
       }
     });
+
+    markersRef.current = Object.values(markersMapRef.current);
+    cloudObjectsRef.current = Object.values(cloudsMapRef.current).filter((c) => c.cloudGroup.visible);
+    floodSurgeMeshesRef.current = Object.values(floodMeshesMapRef.current).filter((f) => f.visible);
   }, [sites, customSites, selectedSite, vertExaggeration, satelliteData]);
 
-  // 3b. Dynamic Continuous Hazard Heatmap Synchronizer
-  // Re-evaluates thermal risk raster across all of Sikkim whenever simulation advances,
-  // weather front shifts, or custom observation nodes are dropped
+  // 3b. Dynamic Continuous Hazard Heatmap Synchronizer (Debounced & runs ONLY when in hazard mode)
   useEffect(() => {
-    if (hazardCanvasRef.current && hazardTextureRef.current) {
+    if (textureMode !== "hazard") return;
+    if (!hazardCanvasRef.current || !hazardTextureRef.current) return;
+
+    clearTimeout(heatmapTimerRef.current);
+    heatmapTimerRef.current = setTimeout(() => {
       const allCurrentSites = { ...sites };
       if (customSites && customSites.length > 0) {
         customSites.forEach((cs) => { allCurrentSites[cs.id] = cs; });
@@ -1149,36 +1153,16 @@ export default function SimulationTerrain3DView({
         liveWaterways,
         hazardMode
       );
-      hazardTextureRef.current.needsUpdate = true;
+      if (hazardTextureRef.current) {
+        hazardTextureRef.current.needsUpdate = true;
+      }
       if (meshRef.current?.material) {
         meshRef.current.material.needsUpdate = true;
       }
-    }
-  }, [sites, customSites, satelliteData, liveWaterways, hazardMode, textureMode]);
+    }, 250);
 
-  // 3c. Dynamic Re-evaluation of Inspected Terrain Coordinate when Weather/Timeline Shifts
-  useEffect(() => {
-    if (inspectedCoordsRef.current) {
-      const { lat, lng, name } = inspectedCoordsRef.current;
-      const allCurrentSites = { ...sites };
-      if (customSites && customSites.length > 0) {
-        customSites.forEach((cs) => { allCurrentSites[cs.id] = cs; });
-      }
-      const updated = calculatePointSeverity(
-        lat,
-        lng,
-        allCurrentSites,
-        satelliteData,
-        liveWaterways,
-        hazardMode
-      );
-      setInspectedPoint((prev) => ({
-        ...prev,
-        ...updated,
-        name: name || prev?.name || "Active Telemetry Region",
-      }));
-    }
-  }, [sites, customSites, satelliteData, liveWaterways, hazardMode]);
+    return () => clearTimeout(heatmapTimerRef.current);
+  }, [sites, customSites, satelliteData, liveWaterways, hazardMode, textureMode]);
 
   // Update Material on mode change
   useEffect(() => {
@@ -1240,645 +1224,10 @@ export default function SimulationTerrain3DView({
         width: "100%",
         height: "100%",
         position: "relative",
-        background: "#f1f5f9",
+        background: "#080d1a",
         overflow: "hidden",
+        cursor: isPickingLocation ? "crosshair" : "grab",
       }}
-    >
-      {/* ── Top Bar Controls ── */}
-      <div
-        style={{
-          position: "absolute",
-          top: 10,
-          left: 10,
-          right: 10,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 8,
-          background: "rgba(255, 255, 255, 0.95)",
-          backdropFilter: "blur(8px)",
-          padding: "7px 12px",
-          borderRadius: 8,
-          border: "1px solid #cbd5e1",
-          boxShadow: "0 4px 14px rgba(15, 23, 42, 0.08)",
-          zIndex: 100,
-        }}
-      >
-        {/* Left: Texture Selector & Hazard Mode Option Buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>
-            3D Terrain:
-          </span>
-          <button
-            onClick={() => setTextureMode("satellite")}
-            style={{
-              padding: "4px 9px",
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              borderRadius: 5,
-              border: textureMode === "satellite" ? "1px solid #0284c7" : "1px solid #cbd5e1",
-              background: textureMode === "satellite" ? "#0284c7" : "#ffffff",
-              color: textureMode === "satellite" ? "#ffffff" : "#334155",
-              cursor: "pointer",
-            }}
-          >
-            🛰️ Satellite
-          </button>
-          <button
-            onClick={() => setTextureMode("topo")}
-            style={{
-              padding: "4px 9px",
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              borderRadius: 5,
-              border: textureMode === "topo" ? "1px solid #0f766e" : "1px solid #cbd5e1",
-              background: textureMode === "topo" ? "#0f766e" : "#ffffff",
-              color: textureMode === "topo" ? "#ffffff" : "#334155",
-              cursor: "pointer",
-            }}
-          >
-            🗺️ Topo DEM
-          </button>
-          <button
-            onClick={() => setTextureMode("hazard")}
-            style={{
-              padding: "4px 9px",
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              borderRadius: 5,
-              border: textureMode === "hazard" ? "1px solid #dc2626" : "1px solid #cbd5e1",
-              background: textureMode === "hazard" ? "#dc2626" : "#ffffff",
-              color: textureMode === "hazard" ? "#ffffff" : "#334155",
-              cursor: "pointer",
-            }}
-          >
-            🔥 Severity Heatmap
-          </button>
-
-          {/* 2D Map Switcher Button */}
-          {setViewDimension && (
-            <button
-              onClick={() => setViewDimension("2d")}
-              style={{
-                padding: "4px 9px",
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                borderRadius: 5,
-                border: "1px solid #cbd5e1",
-                background: "#ffffff",
-                color: "#334155",
-                cursor: "pointer",
-              }}
-              title="Switch back to 2D Leaflet interactive map"
-            >
-              🗺️ 2D Map View
-            </button>
-          )}
-
-          {/* Location Picking Button */}
-          <button
-            onClick={() => setIsPickingLocation && setIsPickingLocation(!isPickingLocation)}
-            style={{
-              padding: "4px 9px",
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              borderRadius: 5,
-              border: isPickingLocation ? "1px solid #0284c7" : "1px solid #cbd5e1",
-              background: isPickingLocation ? "#0284c7" : "#ffffff",
-              color: isPickingLocation ? "#ffffff" : "#334155",
-              cursor: "pointer",
-            }}
-            title="Click anywhere on the 3D mountain surface to add a custom site"
-          >
-            {isPickingLocation ? "🎯 Click Terrain to Drop Pin" : "📍 + Add Custom Point"}
-          </button>
-
-          {customSites.length > 0 && (
-            <button
-              onClick={onClearCustomSites}
-              style={{
-                padding: "4px 8px",
-                fontSize: "0.72rem",
-                fontWeight: 700,
-                borderRadius: 5,
-                border: "1px solid #fca5a5",
-                background: "#fef2f2",
-                color: "#dc2626",
-                cursor: "pointer",
-              }}
-            >
-              🗑️ Clear ({customSites.length})
-            </button>
-          )}
-        </div>
-
-        {/* Right: Sliders & Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {/* Vertical Relief Slider */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.72rem", color: "#475569" }}>
-            <span style={{ fontWeight: 600 }}>Relief:</span>
-            <input
-              type="range"
-              min="0.8"
-              max="2.4"
-              step="0.1"
-              value={vertExaggeration}
-              onChange={(e) => setVertExaggeration(parseFloat(e.target.value))}
-              style={{ width: 65, cursor: "pointer" }}
-            />
-            <span style={{ fontWeight: 700, minWidth: 26, color: "#0f172a" }}>{vertExaggeration.toFixed(1)}×</span>
-          </div>
-
-          {/* River Flow Animation Toggle */}
-          <button
-            onClick={() => setFlowSpeed((s) => (s > 0 ? 0 : 1.0))}
-            style={{
-              padding: "3px 8px",
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              borderRadius: 4,
-              border: "1px solid #0284c7",
-              background: flowSpeed > 0 ? "#e0f2fe" : "#ffffff",
-              color: flowSpeed > 0 ? "#0369a1" : "#64748b",
-              cursor: "pointer",
-            }}
-          >
-            🌊 {flowSpeed > 0 ? "River Flowing" : "Flow Paused"}
-          </button>
-
-          {/* Wireframe Toggle */}
-          <button
-            onClick={() => setShowWireframe(!showWireframe)}
-            style={{
-              padding: "3px 8px",
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              borderRadius: 4,
-              border: "1px solid #cbd5e1",
-              background: showWireframe ? "#e2e8f0" : "#ffffff",
-              color: "#334155",
-              cursor: "pointer",
-            }}
-          >
-            📐 Wireframe
-          </button>
-
-          {/* Orbit Toggle */}
-          <button
-            onClick={() => setAutoRotate(!autoRotate)}
-            style={{
-              padding: "3px 8px",
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              borderRadius: 4,
-              border: "1px solid #cbd5e1",
-              background: autoRotate ? "#f0fdf4" : "#ffffff",
-              color: autoRotate ? "#15803d" : "#64748b",
-              cursor: "pointer",
-            }}
-          >
-            {autoRotate ? "⏸ Orbit" : "▶ Orbit"}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Active River Surge Warning Banner ── */}
-      {hasActiveFloodSurge && (
-        <div
-          style={{
-            position: "absolute",
-            top: 54,
-            left: 14,
-            background: "rgba(15, 23, 42, 0.92)",
-            color: "#38bdf8",
-            border: "1px solid rgba(56, 189, 248, 0.4)",
-            padding: "5px 12px",
-            borderRadius: 6,
-            fontSize: "0.75rem",
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
-            zIndex: 90,
-          }}
-        >
-          <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#38bdf8" }} />
-          🌊 LOCALIZED OVERBANK FLOODING: Elevated stage active at monitored valley stations
-        </div>
-      )}
-
-      {/* ── Active Hazard Heatmap Legend & Continuous Regional Surveillance Banner ── */}
-      {textureMode === "hazard" && (
-        <div
-          style={{
-            position: "absolute",
-            top: hasActiveFloodSurge ? 92 : 54,
-            left: 14,
-            background: "rgba(15, 23, 42, 0.94)",
-            backdropFilter: "blur(10px)",
-            color: "#ffffff",
-            padding: "8px 14px",
-            borderRadius: 8,
-            fontSize: "0.72rem",
-            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.35)",
-            border: "1px solid rgba(56, 189, 248, 0.4)",
-            zIndex: 90,
-            display: "flex",
-            flexDirection: "column",
-            gap: 5,
-            pointerEvents: "auto",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 700, color: "#38bdf8" }}>
-            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#38bdf8", boxShadow: "0 0 8px #38bdf8" }} />
-            <span>🌐 CONTINUOUS SIKKIM BASIN HEATMAP (100% REGIONAL SURVEILLANCE)</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: "0.68rem", color: "#cbd5e1" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 9, height: 9, background: "#16a34a", borderRadius: 2 }} /> Safe (0-25%)
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 9, height: 9, background: "#eab308", borderRadius: 2 }} /> Advisory (25-50%)
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 9, height: 9, background: "#ea580c", borderRadius: 2 }} /> Warning (50-75%)
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 9, height: 9, background: "#dc2626", borderRadius: 2 }} /> Critical (&gt;75%)
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* ── Localized Region Severity Inspector Card HUD ── */}
-      {(inspectedPoint || (selectedSite && sites[selectedSite])) &&
-        (() => {
-          const activeData = inspectedPoint || sites[selectedSite];
-          const isArbitraryPoint = !!inspectedPoint && !inspectedPoint.id;
-          const name = activeData?.name || `Region ${selectedSite}`;
-          const lat = Number(activeData?.latitude ?? activeData?.lat);
-          const lng = Number(activeData?.longitude ?? activeData?.lng ?? activeData?.lon);
-          const elev = activeData?.elevation_m ?? activeData?.satelliteElevation ?? 1200;
-          const slope = activeData?.slope_deg ?? 32;
-          const fos = activeData?.factor_of_safety;
-          const lsProb = activeData?.probability_percent ?? activeData?.landslide_probability_percent ?? 15;
-          const stage = activeData?.river_stage_state || "NORMAL";
-          const stability = activeData?.stability_state || "STABLE";
-          const sevBand = activeData?.severity_band || "MINOR";
-          const rain1h = activeData?.rainfall_1h_mm ?? 0;
-          const rain24h = activeData?.rainfall_24h_mm ?? 0;
-
-          let sevTitle = "🟢 NOMINAL STABILITY: LOW HAZARD";
-          let sevBg = "rgba(34, 197, 94, 0.18)";
-          let sevBorder = "#22c55e";
-          let sevText = "#4ade80";
-
-          const isCritical =
-            sevBand === "CATASTROPHIC_POTENTIAL" ||
-            stability === "UNSTABLE" ||
-            stage === "OVERBANK_FLOODING" ||
-            stage === "CATASTROPHIC_SURGE" ||
-            (fos != null && fos < 1.0) ||
-            lsProb >= 75;
-
-          const isMajor =
-            !isCritical &&
-            (sevBand === "MAJOR" ||
-              stability === "MARGINAL" ||
-              stage === "BANKFULL_WARNING" ||
-              (fos != null && fos < 1.25) ||
-              lsProb >= 48);
-
-          const isModerate =
-            !isCritical &&
-            !isMajor &&
-            (sevBand === "MODERATE" ||
-              lsProb >= 35 ||
-              (fos != null && fos < 1.35 && rain24h >= 40));
-
-          if (isCritical) {
-            sevTitle = "🚨 CRITICAL SEVERITY: FAILURE IMMINENT";
-            sevBg = "rgba(220, 38, 38, 0.22)";
-            sevBorder = "#ef4444";
-            sevText = "#fca5a5";
-          } else if (isMajor) {
-            sevTitle = "⚠️ MAJOR WARNING: DEGRADED STABILITY";
-            sevBg = "rgba(234, 88, 12, 0.22)";
-            sevBorder = "#f97316";
-            sevText = "#fdba74";
-          } else if (isModerate) {
-            sevTitle = "⚡ MODERATE ADVISORY: ELEVATED THREAT";
-            sevBg = "rgba(234, 179, 8, 0.20)";
-            sevBorder = "#eab308";
-            sevText = "#fef08a";
-          }
-
-          return (
-            <div
-              style={{
-                position: "absolute",
-                top: 56,
-                right: 14,
-                width: 335,
-                background: "rgba(15, 23, 42, 0.94)",
-                backdropFilter: "blur(12px)",
-                border: `1px solid ${sevBorder}`,
-                borderRadius: 10,
-                boxShadow: "0 10px 30px rgba(0,0,0,0.55)",
-                color: "#ffffff",
-                padding: "13px 15px",
-                zIndex: 105,
-                fontSize: "0.78rem",
-                pointerEvents: "auto",
-              }}
-            >
-              {/* Header */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: 8,
-                }}
-              >
-                <div style={{ minWidth: 0, flex: 1, paddingRight: 8 }}>
-                  <div
-                    style={{
-                      fontWeight: 800,
-                      fontSize: "0.88rem",
-                      color: "#f8fafc",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    📍 {name}
-                  </div>
-                  <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 2 }}>
-                    {Number.isFinite(lat) ? lat.toFixed(4) : "27.4200"}°N,{" "}
-                    {Number.isFinite(lng) ? lng.toFixed(4) : "88.5200"}°E ·{" "}
-                    {activeData.isCustom
-                      ? "Custom Monitored Station"
-                      : isArbitraryPoint
-                      ? "Terrain Spot Inspection"
-                      : "Core Teesta Station"}
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setInspectedPoint(null);
-                    inspectedCoordsRef.current = null;
-                    if (onSelectSite) onSelectSite(null);
-                  }}
-                  style={{
-                    background: "rgba(255,255,255,0.12)",
-                    border: "none",
-                    borderRadius: 4,
-                    color: "#cbd5e1",
-                    cursor: "pointer",
-                    fontSize: "0.75rem",
-                    padding: "2px 7px",
-                  }}
-                  title="Close Inspector"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Status Badge */}
-              <div
-                style={{
-                  background: sevBg,
-                  border: `1px solid ${sevBorder}`,
-                  borderRadius: 7,
-                  padding: "7px 11px",
-                  fontWeight: 800,
-                  fontSize: "0.75rem",
-                  color: sevText,
-                  marginBottom: 10,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  lineHeight: 1.35,
-                  boxShadow: `0 2px 10px ${sevBg}`,
-                }}
-              >
-                <span>{sevTitle}</span>
-              </div>
-
-              {/* Key Metrics Grid */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "6px 10px",
-                  marginBottom: 10,
-                  background: "rgba(30, 41, 59, 0.75)",
-                  padding: "9px 11px",
-                  borderRadius: 6,
-                }}
-              >
-                <div>
-                  <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>Elevation:</span>
-                  <div style={{ fontWeight: 700, color: "#f1f5f9" }}>{elev} m</div>
-                </div>
-                <div>
-                  <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>Slope Gradient:</span>
-                  <div style={{ fontWeight: 700, color: "#f1f5f9" }}>{slope}°</div>
-                </div>
-                <div>
-                  <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>Factor of Safety:</span>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: fos < 1.0 ? "#f87171" : fos < 1.3 ? "#fb923c" : "#4ade80",
-                    }}
-                  >
-                    {fos != null ? Number(fos).toFixed(2) : "1.45"} ({stability})
-                  </div>
-                </div>
-                <div>
-                  <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>Landslide Risk:</span>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: lsProb > 60 ? "#f87171" : lsProb > 35 ? "#fb923c" : "#4ade80",
-                    }}
-                  >
-                    {lsProb}%
-                  </div>
-                </div>
-                <div>
-                  <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>River Stage:</span>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: stage !== "NORMAL" ? "#38bdf8" : "#94a3b8",
-                    }}
-                  >
-                    {stage}
-                  </div>
-                </div>
-                <div>
-                  <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>Rain (1h / 24h):</span>
-                  <div style={{ fontWeight: 700, color: "#93c5fd" }}>
-                    {Number(rain1h).toFixed(1)} / {Math.round(rain24h)} mm
-                  </div>
-                </div>
-              </div>
-
-              {/* Action for arbitrary inspected spot */}
-              {isArbitraryPoint && onMapClick && (
-                <button
-                  onClick={() => {
-                    onMapClick(lat, lng);
-                    setInspectedPoint(null);
-                  }}
-                  style={{
-                    width: "100%",
-                    background: "#0284c7",
-                    border: "none",
-                    borderRadius: 6,
-                    color: "#ffffff",
-                    fontWeight: 700,
-                    padding: "7px 10px",
-                    cursor: "pointer",
-                    fontSize: "0.74rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    boxShadow: "0 2px 8px rgba(2, 132, 199, 0.35)",
-                  }}
-                >
-                  📍 + Add Permanent Station at this Location
-                </button>
-              )}
-            </div>
-          );
-        })()}
-
-      {/* ── Location Picking Banner ── */}
-      {isPickingLocation && (
-        <div
-          style={{
-            position: "absolute",
-            top: 54,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#0284c7",
-            color: "#ffffff",
-            padding: "7px 18px",
-            borderRadius: 20,
-            fontSize: "0.82rem",
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            boxShadow: "0 4px 16px rgba(2, 132, 199, 0.4)",
-            zIndex: 110,
-            pointerEvents: "auto",
-          }}
-        >
-          <span>🎯 LOCATION PICKING: Click anywhere on 3D mountain terrain to drop a monitoring point</span>
-          <button
-            onClick={() => setIsPickingLocation && setIsPickingLocation(false)}
-            style={{
-              background: "rgba(0, 0, 0, 0.25)",
-              border: "1px solid rgba(255, 255, 255, 0.4)",
-              color: "#ffffff",
-              padding: "2px 10px",
-              borderRadius: 12,
-              cursor: "pointer",
-              fontWeight: 700,
-              fontSize: "0.75rem",
-            }}
-          >
-            ✕ Cancel
-          </button>
-        </div>
-      )}
-
-      {/* ── Hovered Site Tooltip Overlay ── */}
-      {hoveredInfo && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 45,
-            left: 14,
-            background: "rgba(255, 255, 255, 0.96)",
-            backdropFilter: "blur(8px)",
-            borderRadius: 8,
-            padding: "9px 13px",
-            boxShadow: "0 4px 16px rgba(15, 23, 42, 0.14)",
-            border: "1px solid #cbd5e1",
-            pointerEvents: "none",
-            zIndex: 100,
-            maxWidth: 320,
-          }}
-        >
-          <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "#0f172a" }}>
-            📍 {hoveredInfo.name || hoveredInfo.location_id || "Monitoring Station"}
-          </div>
-          <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-            Satellite Elevation: <b>{hoveredInfo.elevation_m || 800}m</b> · Slope:{" "}
-            <b>{hoveredInfo.slope_deg || 38}°</b>
-          </div>
-          <div style={{ fontSize: "0.72rem", color: "#0284c7", marginTop: 3 }}>
-            {hoveredInfo.rainfall_1h_mm != null && (
-              <span>
-                🌧️ Rain: <b>{hoveredInfo.rainfall_1h_mm.toFixed(1)} mm/h</b> ·{" "}
-              </span>
-            )}
-            Stage: <b>{hoveredInfo.river_stage_state || "NORMAL"}</b>
-          </div>
-        </div>
-      )}
-
-      {/* ── Bottom Status Bar ── */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 8,
-          left: 12,
-          right: 12,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          pointerEvents: "none",
-          fontSize: "0.7rem",
-          color: "#475569",
-          background: "rgba(255, 255, 255, 0.88)",
-          backdropFilter: "blur(6px)",
-          padding: "5px 12px",
-          borderRadius: 6,
-          border: "1px solid rgba(226, 232, 240, 0.9)",
-          zIndex: 5,
-        }}
-      >
-        <div>
-          🖱 <b>Drag</b> to rotate · <b>Scroll</b> to zoom · <b>Click heatmap</b> to inspect localized severity · <b>Click pin</b> for telemetry
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span
-            style={{
-              display: "inline-block",
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: satStatus === "live" ? "#16a34a" : "#0284c7",
-              boxShadow: `0 0 6px ${satStatus === "live" ? "#22c55e" : "#38bdf8"}`,
-            }}
-          />
-          <span style={{ fontWeight: 600 }}>
-            {satStatus === "live"
-              ? "📡 SRTM / Copernicus 90m Satellite DEM (Live)"
-              : "🛰️ SRTM Satellite DEM (High-Fidelity Model)"}
-          </span>
-        </div>
-      </div>
-    </div>
+    />
   );
 }

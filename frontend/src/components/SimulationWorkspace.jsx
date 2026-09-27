@@ -320,6 +320,13 @@ export default function SimulationWorkspace() {
   const [customSites, setCustomSites] = useState([]);
   const [isPickingLocation, setIsPickingLocation] = useState(false);
 
+  // 3D Terrain Specific Menu Controls (lifted to upper menu deck)
+  const [textureMode, setTextureMode] = useState("satellite"); // "satellite" | "topo" | "hazard"
+  const [vertExaggeration, setVertExaggeration] = useState(1.4);
+  const [showWireframe, setShowWireframe] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [flowSpeed, setFlowSpeed] = useState(1.0);
+
   // 153-Day Monsoon Crisis Simulation Engine (June 1 - October 31)
   const [dayOfYear, setDayOfYear] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -617,26 +624,31 @@ export default function SimulationWorkspace() {
       <div className="sim-map-container">
         {/* ═══ UNIFIED SIMULATION MISSION CONTROL DECK (TOP CARD ABOVE MAP) ═══ */}
         {isDeckCollapsed ? (
-          /* Collapsed Mode: Only play/pause button, time bar of months, and expand button */
+          /* Collapsed Mode: Ultra-slim, fits strictly in just ONE single line */
           <div
             className="sim-mission-control-deck collapsed"
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              padding: "8px 14px",
+              gap: 8,
+              padding: "2px 10px",
+              height: 36,
+              minHeight: 36,
+              maxHeight: 36,
               background: "#ffffff",
               border: "1px solid #cbd5e1",
-              borderRadius: 8,
-              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
-              marginBottom: 8,
+              borderRadius: 6,
+              boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)",
+              marginBottom: 4,
+              boxSizing: "border-box",
+              overflow: "hidden",
             }}
           >
             {/* Play/Pause Button */}
             <button
               className={`sim-deck-play-btn ${isPlaying ? "playing" : ""}`}
               onClick={handlePlayPause}
-              style={{ padding: "5px 12px", fontSize: "0.82rem", whiteSpace: "nowrap" }}
+              style={{ padding: "3px 10px", fontSize: "0.78rem", fontWeight: 700, whiteSpace: "nowrap", height: 26, borderRadius: 4 }}
             >
               {isPlaying ? "⏸️ Pause" : dayOfYear >= TOTAL_SIMULATION_DAYS ? "🔄 Replay" : "▶️ Play"}
             </button>
@@ -649,12 +661,12 @@ export default function SimulationWorkspace() {
               value={dayOfYear}
               onChange={(e) => setDayOfYear(parseInt(e.target.value, 10))}
               className="sim-deck-slider"
-              style={{ flex: 1, minWidth: 140 }}
+              style={{ flex: 1, minWidth: 90, height: 4, margin: "0 4px" }}
               title="Drag to scrub through 153-day monsoon timeline"
             />
 
             {/* Month Milestones Time Bar */}
-            <div className="sim-deck-month-milestones" style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+            <div className="sim-deck-month-milestones" style={{ display: "flex", gap: 3, flexWrap: "nowrap" }}>
               {[
                 { name: "Jun", day: 1, color: "#0284c7" },
                 { name: "Jul", day: 31, color: "#dc2626" },
@@ -666,7 +678,7 @@ export default function SimulationWorkspace() {
                   key={m.name}
                   className="sim-month-jump-chip"
                   onClick={() => setDayOfYear(m.day)}
-                  style={{ color: m.color, padding: "2px 8px", fontSize: "0.74rem" }}
+                  style={{ color: m.color, padding: "1px 6px", fontSize: "0.7rem", height: 22, lineHeight: "20px", fontWeight: 700 }}
                   title={`Jump timeline to ${m.name}`}
                 >
                   • {m.name}
@@ -675,7 +687,7 @@ export default function SimulationWorkspace() {
             </div>
 
             {/* Date Pill */}
-            <span style={{ fontSize: "0.76rem", fontWeight: 700, color: "#334155", whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>
               Day {dayOfYear} ({dateInfo.dateString.slice(0, 6)})
             </span>
 
@@ -683,10 +695,10 @@ export default function SimulationWorkspace() {
             <button
               onClick={() => setIsDeckCollapsed(false)}
               style={{
-                padding: "4px 10px",
-                fontSize: "0.75rem",
+                padding: "2px 8px",
+                fontSize: "0.72rem",
                 fontWeight: 700,
-                borderRadius: 6,
+                borderRadius: 4,
                 border: "1px solid #cbd5e1",
                 background: "#f1f5f9",
                 color: "#1e293b",
@@ -694,11 +706,12 @@ export default function SimulationWorkspace() {
                 whiteSpace: "nowrap",
                 display: "flex",
                 alignItems: "center",
-                gap: 4,
+                gap: 3,
+                height: 24,
               }}
               title="Expand full mission control deck"
             >
-              🔽 Expand Controls
+              🔽 Expand
             </button>
           </div>
         ) : (
@@ -742,7 +755,7 @@ export default function SimulationWorkspace() {
                 </div>
               </div>
 
-              {/* Right: Map Layer Toggles & Live Threat Status */}
+              {/* Right: Map Layer Toggles, Custom Point Dropper, & Live Threat Status */}
               <div className="sim-deck-status-block">
                 <div className="sim-deck-toggles">
                   <button
@@ -759,6 +772,37 @@ export default function SimulationWorkspace() {
                   >
                     🛣️ Highways: {showInfrastructure ? "ON" : "OFF"}
                   </button>
+                  <button
+                    className={`sim-deck-pill-btn ${isPickingLocation ? "active" : ""}`}
+                    onClick={() => setIsPickingLocation(!isPickingLocation)}
+                    style={{
+                      borderColor: isPickingLocation ? "#0284c7" : "#cbd5e1",
+                      background: isPickingLocation ? "#0284c7" : "#ffffff",
+                      color: isPickingLocation ? "#ffffff" : "#334155",
+                      fontWeight: 700,
+                    }}
+                    title="Click anywhere on the terrain/map to add a custom monitoring site"
+                  >
+                    {isPickingLocation ? "🎯 Click Map to Drop Pin" : "📍 + Add Point"}
+                  </button>
+                  {customSites.length > 0 && (
+                    <button
+                      onClick={handleClearCustomSites}
+                      style={{
+                        padding: "3px 7px",
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        borderRadius: 5,
+                        border: "1px solid #fca5a5",
+                        background: "#fef2f2",
+                        color: "#dc2626",
+                        cursor: "pointer",
+                      }}
+                      title="Clear custom dropped sites"
+                    >
+                      🗑️ ({customSites.length})
+                    </button>
+                  )}
                   <button
                     className={`sim-deck-pill-btn ${viewDimension === "3d" ? "active" : ""}`}
                     onClick={() => setViewDimension(viewDimension === "3d" ? "2d" : "3d")}
@@ -805,7 +849,7 @@ export default function SimulationWorkspace() {
                     alignItems: "center",
                     gap: 3,
                   }}
-                  title="Collapse controls into a compact time bar"
+                  title="Collapse controls into a compact single-line time bar"
                 >
                   ▲ Collapse
                 </button>
@@ -843,6 +887,146 @@ export default function SimulationWorkspace() {
                 ))}
               </div>
             </div>
+
+            {/* Conditional 3D Terrain Menu Controls (Rendered ONLY in 3D Mode) */}
+            {viewDimension === "3d" && (
+              <div
+                className="sim-deck-3d-toolbar"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  padding: "6px 14px",
+                  background: "#f8fafc",
+                  borderTop: "1px solid #e2e8f0",
+                  borderRadius: "0 0 8px 8px",
+                  boxSizing: "border-box",
+                }}
+              >
+                {/* Surface Texture Selector */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>
+                    3D Surface:
+                  </span>
+                  <button
+                    onClick={() => setTextureMode("satellite")}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      borderRadius: 4,
+                      border: textureMode === "satellite" ? "1px solid #0284c7" : "1px solid #cbd5e1",
+                      background: textureMode === "satellite" ? "#0284c7" : "#ffffff",
+                      color: textureMode === "satellite" ? "#ffffff" : "#334155",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🛰️ Satellite
+                  </button>
+                  <button
+                    onClick={() => setTextureMode("topo")}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      borderRadius: 4,
+                      border: textureMode === "topo" ? "1px solid #0f766e" : "1px solid #cbd5e1",
+                      background: textureMode === "topo" ? "#0f766e" : "#ffffff",
+                      color: textureMode === "topo" ? "#ffffff" : "#334155",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🗺️ Topo DEM
+                  </button>
+                  <button
+                    onClick={() => setTextureMode("hazard")}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      borderRadius: 4,
+                      border: textureMode === "hazard" ? "1px solid #dc2626" : "1px solid #cbd5e1",
+                      background: textureMode === "hazard" ? "#dc2626" : "#ffffff",
+                      color: textureMode === "hazard" ? "#ffffff" : "#334155",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🔥 Severity Heatmap
+                  </button>
+                </div>
+
+                {/* 3D Physical & Camera Controls */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  {/* Vertical Relief Slider */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.72rem", color: "#475569" }}>
+                    <span style={{ fontWeight: 600 }}>Relief:</span>
+                    <input
+                      type="range"
+                      min="0.8"
+                      max="2.4"
+                      step="0.1"
+                      value={vertExaggeration}
+                      onChange={(e) => setVertExaggeration(parseFloat(e.target.value))}
+                      style={{ width: 60, cursor: "pointer" }}
+                    />
+                    <span style={{ fontWeight: 700, minWidth: 26, color: "#0f172a" }}>{vertExaggeration.toFixed(1)}×</span>
+                  </div>
+
+                  {/* River Flow Animation Toggle */}
+                  <button
+                    onClick={() => setFlowSpeed((s) => (s > 0 ? 0 : 1.0))}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      borderRadius: 4,
+                      border: "1px solid #0284c7",
+                      background: flowSpeed > 0 ? "#e0f2fe" : "#ffffff",
+                      color: flowSpeed > 0 ? "#0369a1" : "#64748b",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🌊 {flowSpeed > 0 ? "River Flowing" : "Flow Paused"}
+                  </button>
+
+                  {/* Wireframe Toggle */}
+                  <button
+                    onClick={() => setShowWireframe(!showWireframe)}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      borderRadius: 4,
+                      border: "1px solid #cbd5e1",
+                      background: showWireframe ? "#e2e8f0" : "#ffffff",
+                      color: "#334155",
+                      cursor: "pointer",
+                    }}
+                  >
+                    📐 Wireframe
+                  </button>
+
+                  {/* Orbit Toggle */}
+                  <button
+                    onClick={() => setAutoRotate(!autoRotate)}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      borderRadius: 4,
+                      border: "1px solid #cbd5e1",
+                      background: autoRotate ? "#f0fdf4" : "#ffffff",
+                      color: autoRotate ? "#15803d" : "#64748b",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {autoRotate ? "⏸ Orbit" : "▶ Orbit"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -864,6 +1048,16 @@ export default function SimulationWorkspace() {
               onClearCustomSites={handleClearCustomSites}
               viewDimension={viewDimension}
               setViewDimension={setViewDimension}
+              textureMode={textureMode}
+              setTextureMode={setTextureMode}
+              vertExaggeration={vertExaggeration}
+              setVertExaggeration={setVertExaggeration}
+              showWireframe={showWireframe}
+              setShowWireframe={setShowWireframe}
+              autoRotate={autoRotate}
+              setAutoRotate={setAutoRotate}
+              flowSpeed={flowSpeed}
+              setFlowSpeed={setFlowSpeed}
             />
           ) : (
             <SimulationMapView

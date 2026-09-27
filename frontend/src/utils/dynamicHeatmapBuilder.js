@@ -239,7 +239,8 @@ export function renderDynamicHazardHeatmap(
   if (liveWaterways) {
     liveWaterways.forEach((rw) => {
       const pts = rw.points || [];
-      for (let p = 0; p < pts.length; p += 3) {
+      const step = Math.max(6, Math.floor(pts.length / 25));
+      for (let p = 0; p < pts.length; p += step) {
         const rLat = pts[p][0];
         const rLng = pts[p][1];
         const rnx = (rLng - BBOX.minLng) / (BBOX.maxLng - BBOX.minLng);
@@ -267,30 +268,36 @@ export function renderDynamicHazardHeatmap(
       let wSum = 0.0001;
       let rainSum = 0;
       let scoreSum = 0;
-      let minStationDist = 999;
+      let minStationDistSq = 999;
       for (let s = 0; s < stationList.length; s++) {
         const st = stationList[s];
-        const d = Math.hypot(nx - st.nx, nz - st.nz);
-        if (d < minStationDist) minStationDist = d;
+        const dx = nx - st.nx;
+        const dz = nz - st.nz;
+        const dSq = dx * dx + dz * dz;
+        if (dSq < minStationDistSq) minStationDistSq = dSq;
         // Inverse distance weighting with realistic valley scale (0.15 ~ 8km)
-        const w = 1.0 / (d * d + 0.035);
+        const w = 1.0 / (dSq + 0.035);
         wSum += w;
         rainSum += st.r24 * w;
         scoreSum += st.sScore * w;
       }
+      const minStationDist = Math.sqrt(minStationDistSq);
       const localRain = rainSum / wSum;
       const localStationScore = scoreSum / wSum;
 
-      // River distance
-      let minRiverDist = 999;
+      // River distance (squared distance optimization)
+      let minRiverDistSq = 999;
       for (let r = 0; r < riverNodes.length; r++) {
         const rn = riverNodes[r];
-        const d = Math.hypot(nx - rn.nx, nz - rn.nz);
-        if (d < minRiverDist) {
-          minRiverDist = d;
-          if (d < 0.01) break;
+        const dx = nx - rn.nx;
+        const dz = nz - rn.nz;
+        const dSq = dx * dx + dz * dz;
+        if (dSq < minRiverDistSq) {
+          minRiverDistSq = dSq;
+          if (dSq < 0.0001) break;
         }
       }
+      const minRiverDist = Math.sqrt(minRiverDistSq);
 
       // Topographic Vulnerabilities
       const slopeFactor = Math.max(0.12, Math.min(1.0, (slopeDeg - 10) / 26));
