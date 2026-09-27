@@ -1,8 +1,8 @@
 /**
  * FLOWS — Live Hydrological River & Drainage 3D Engine
  * Converts real-time OpenStreetMap waterways into dynamic 3D river meshes
- * with map-calibrated widths, hydraulic elevation gradient flow orientation,
- * and terrain canyon carving.
+ * with map-calibrated widths, strict hydraulic downhill flow gradient conditioning,
+ * and physically realistic flat riverbed & valley floor carving.
  */
 
 export const BBOX = {
@@ -30,14 +30,35 @@ export function threeToGeo(x, z) {
   return { lat, lng };
 }
 
+/**
+ * Bilinear interpolation of satellite elevation matrix.
+ * Smooths across discrete DEM pixels to prevent staircasing.
+ */
 export function sampleSatelliteElevation(normX, normZ, elevations, gridSize, minElev, maxElev) {
   const clampedX = Math.max(0, Math.min(1, normX));
   const clampedZ = Math.max(0, Math.min(1, normZ));
-  const col = Math.min(gridSize - 1, Math.floor(clampedX * (gridSize - 1)));
-  const row = Math.min(gridSize - 1, Math.floor(clampedZ * (gridSize - 1)));
-  const idx = row * gridSize + col;
-  const hMeters = elevations && elevations[idx] !== undefined ? elevations[idx] : 1200;
-  const normH = (hMeters - minElev) / Math.max(1, maxElev - minElev);
+  if (!elevations || elevations.length === 0) {
+    return { hMeters: 1200, yWorld: 10.0, normH: 0.4 };
+  }
+  const gx = clampedX * (gridSize - 1);
+  const gz = clampedZ * (gridSize - 1);
+  const col0 = Math.floor(gx);
+  const col1 = Math.min(gridSize - 1, col0 + 1);
+  const row0 = Math.floor(gz);
+  const row1 = Math.min(gridSize - 1, row0 + 1);
+  const fx = gx - col0;
+  const fz = gz - row0;
+
+  const h00 = elevations[row0 * gridSize + col0] ?? minElev;
+  const h10 = elevations[row0 * gridSize + col1] ?? minElev;
+  const h01 = elevations[row1 * gridSize + col0] ?? minElev;
+  const h11 = elevations[row1 * gridSize + col1] ?? minElev;
+
+  const hTop = h00 * (1 - fx) + h10 * fx;
+  const hBot = h01 * (1 - fx) + h11 * fx;
+  const hMeters = hTop * (1 - fz) + hBot * fz;
+
+  const normH = Math.max(0, Math.min(1, (hMeters - minElev) / Math.max(1, maxElev - minElev)));
   const yWorld = normH * 22.0 + 1.2;
   return { hMeters, yWorld, normH };
 }
@@ -104,8 +125,60 @@ export function getRiverHalfWidth(riverName, lat, hMeters) {
 }
 
 /**
+ * Enforces strict hydraulic downhill flow and removes DEM sampling noise / rollercoaster spikes.
+ * Water physically cannot climb uphill. Every successive downstream point is strictly <= previous point.
+ */
+export function conditionMonotonicRiverProfile(points) {
+  const n = points.length;
+  if (n < 2) return points;
+
+  // Cumulative distance along the reach
+  const dists = [0];
+  for (let i = 1; i < n; i++) {
+    const d = Math.hypot(points[i].x - points[i - 1].x, points[i].z - points[i - 1].z);
+    dists.push(dists[i - 1] + Math.max(0.01, d));
+  }
+  const totalLen = dists[n - 1];
+
+  const startY = points[0].yWorld;
+  const endY = points[n - 1].yWorld;
+  const netDrop = Math.max(0.2, startY - endY);
+  const minSlope = (netDrop / Math.max(1, totalLen)) * 0.4;
+
+  const h = points.map((p) => p.yWorld);
+
+  // Forward pass: water must descend monotonically
+  for (let i = 1; i < n; i++) {
+    const stepDist = dists[i] - dists[i - 1];
+    const maxAllowed = h[i - 1] - minSlope * stepDist;
+    h[i] = Math.min(maxAllowed, h[i]);
+  }
+
+  // Backward pass: prevent premature drop below downstream target
+  for (let i = n - 2; i >= 0; i--) {
+    const stepDist = dists[i + 1] - dists[i];
+    const minRequired = h[i + 1] + minSlope * stepDist;
+    h[i] = Math.max(h[i], minRequired);
+  }
+
+  // 3-point monotonic smoothing
+  const smoothed = [...h];
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 1; i < n - 1; i++) {
+      smoothed[i] = 0.2 * smoothed[i - 1] + 0.6 * smoothed[i] + 0.2 * smoothed[i + 1];
+    }
+  }
+
+  for (let i = 0; i < n; i++) {
+    points[i].yWorld = smoothed[i];
+  }
+  return points;
+}
+
+/**
  * Parses raw waterways from OSM, filters to 3D bounding box,
- * orients in downhill hydraulic flow direction, and assigns dynamic widths.
+ * orients in downhill hydraulic flow direction, applies monotonic slope conditioning,
+ * and assigns dynamic widths.
  */
 export function processLiveWaterways(
   rawWaterways,
@@ -166,13 +239,16 @@ export function processLiveWaterways(
 
     if (filtered.length < 2) return;
 
-    // Hydraulic Flow Orientation: water always flows from high elevation to low elevation.
+    // Hydraulic Flow Orientation: water always flows from high mountain elevation to low valley outlet.
     // If start is lower than end, reverse points so index 0 is upstream (higher) and end is downstream (lower).
     const startH = filtered[0].hMeters;
     const endH = filtered[filtered.length - 1].hMeters;
     if (startH < endH) {
       filtered.reverse();
     }
+
+    // Condition strictly monotonic downhill profile (no rollercoasters or mountain-climbing)
+    conditionMonotonicRiverProfile(filtered);
 
     processed.push({
       id: river.id || `river-${Math.random()}`,
@@ -184,6 +260,113 @@ export function processLiveWaterways(
   });
 
   return processed;
+}
+
+/**
+ * Fast spatial binning grid for 3D valley flattening across 5,329 terrain vertices.
+ */
+export function buildValleySpatialIndex(processedRivers) {
+  const GRID_CELLS = 16;
+  const CELL_SIZE = PLANE_SIZE / GRID_CELLS;
+  const grid = Array.from({ length: GRID_CELLS * GRID_CELLS }, () => []);
+
+  if (!processedRivers || processedRivers.length === 0) {
+    return { grid: [], GRID_CELLS, CELL_SIZE, hasRivers: false };
+  }
+
+  processedRivers.forEach((river) => {
+    const pts = river.points;
+    for (let k = 0; k < pts.length - 1; k++) {
+      const p1 = pts[k];
+      const p2 = pts[k + 1];
+      const canyonMargin = (p1.width || 0.6) + 4.5;
+      const minX = Math.min(p1.x, p2.x) - canyonMargin;
+      const maxX = Math.max(p1.x, p2.x) + canyonMargin;
+      const minZ = Math.min(p1.z, p2.z) - canyonMargin;
+      const maxZ = Math.max(p1.z, p2.z) + canyonMargin;
+
+      const startGX = Math.max(0, Math.floor((minX + PLANE_SIZE / 2) / CELL_SIZE));
+      const endGX = Math.min(GRID_CELLS - 1, Math.floor((maxX + PLANE_SIZE / 2) / CELL_SIZE));
+      const startGZ = Math.max(0, Math.floor((minZ + PLANE_SIZE / 2) / CELL_SIZE));
+      const endGZ = Math.min(GRID_CELLS - 1, Math.floor((maxZ + PLANE_SIZE / 2) / CELL_SIZE));
+
+      const dx = p2.x - p1.x;
+      const dz = p2.z - p1.z;
+      const lenSq = dx * dx + dz * dz;
+      const seg = {
+        p1,
+        p2,
+        dx,
+        dz,
+        lenSq: lenSq === 0 ? 1e-6 : lenSq,
+        width: p1.width || 0.6,
+      };
+
+      for (let gx = startGX; gx <= endGX; gx++) {
+        for (let gz = startGZ; gz <= endGZ; gz++) {
+          grid[gz * GRID_CELLS + gx].push(seg);
+        }
+      }
+    }
+  });
+
+  return { grid, GRID_CELLS, CELL_SIZE, hasRivers: true };
+}
+
+/**
+ * Hydrologically flattens the riverbed and alluvial valley floor along live rivers.
+ * Guarantees that rivers sit in realistic flat valleys and do not climb up mountains.
+ */
+export function carveValleyElevation(vx, vz, naturalYWorld, valleyIndex) {
+  if (!valleyIndex || !valleyIndex.hasRivers) return naturalYWorld;
+
+  const { grid, GRID_CELLS, CELL_SIZE } = valleyIndex;
+  const gx = Math.max(0, Math.min(GRID_CELLS - 1, Math.floor((vx + PLANE_SIZE / 2) / CELL_SIZE)));
+  const gz = Math.max(0, Math.min(GRID_CELLS - 1, Math.floor((vz + PLANE_SIZE / 2) / CELL_SIZE)));
+  const bucket = grid[gz * GRID_CELLS + gx];
+
+  if (!bucket || bucket.length === 0) return naturalYWorld;
+
+  let closestDist = Infinity;
+  let closestRiverY = 0;
+  let closestWidth = 0.6;
+
+  for (let i = 0; i < bucket.length; i++) {
+    const seg = bucket[i];
+    const t = Math.max(0, Math.min(1, ((vx - seg.p1.x) * seg.dx + (vz - seg.p1.z) * seg.dz) / seg.lenSq));
+    const projX = seg.p1.x + t * seg.dx;
+    const projZ = seg.p1.z + t * seg.dz;
+    const d = Math.hypot(vx - projX, vz - projZ);
+    if (d < closestDist) {
+      closestDist = d;
+      closestRiverY = seg.p1.yWorld + t * (seg.p2.yWorld - seg.p1.yWorld);
+      closestWidth = seg.width;
+    }
+  }
+
+  const wChannel = closestWidth;
+  const wPlain = closestWidth + 1.3; // Flat alluvial valley floor
+  const wCanyon = wPlain + 2.8;     // Canyon wall slope
+
+  if (closestDist <= wChannel) {
+    // Exactly in the flat river channel bed: flat cross section, 0.12 units beneath water surface
+    const flatBed = closestRiverY - 0.12;
+    return Math.min(naturalYWorld, flatBed);
+  } else if (closestDist <= wPlain) {
+    // In the flat alluvial valley floodplain terrace
+    const plainOffset = (closestDist - wChannel) * 0.12;
+    const targetY = closestRiverY - 0.12 + plainOffset;
+    return Math.min(naturalYWorld, targetY);
+  } else if (closestDist < wCanyon) {
+    // Smooth valley wall transition ascending to mountains
+    const plainEdge = closestRiverY - 0.12 + 1.3 * 0.12;
+    const t = (closestDist - wPlain) / (wCanyon - wPlain);
+    const s = t * t * (3 - 2 * t);
+    const targetY = plainEdge * (1 - s) + naturalYWorld * s;
+    return Math.min(naturalYWorld, targetY);
+  }
+
+  return naturalYWorld;
 }
 
 /**
@@ -225,8 +408,8 @@ export function buildLiveRiverMeshes(
 
     for (let i = 0; i < count; i++) {
       const pt = pts[i];
-      // Elevate slightly above the carved canyon bed to avoid z-fighting
-      const ry = Math.max(1.0, (pt.yWorld - 1.15) * vertExaggeration);
+      // River water surface elevation
+      const ry = Math.max(0.5, pt.yWorld * vertExaggeration);
 
       let tx = 0,
         tz = 1;
@@ -306,7 +489,7 @@ export function buildLiveRiverMeshes(
 
     // Store base unexaggerated Y for dynamic relief updates
     for (let k = 0; k < count * 2; k++) {
-      mesh.userData.baseY[k] = riverVerts[k * 3 + 1] / Math.max(0.1, vertExaggeration);
+      mesh.userData.baseY[k] = pts[Math.floor(k / 2)].yWorld;
     }
 
     riverGroup.add(mesh);

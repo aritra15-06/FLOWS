@@ -13,6 +13,8 @@ import {
   processLiveWaterways,
   buildLiveRiverMeshes,
   getRiverHalfWidth,
+  buildValleySpatialIndex,
+  carveValleyElevation,
 } from "../utils/river3DBuilder";
 
 const SATELLITE_API_URL =
@@ -338,6 +340,9 @@ export default function SimulationTerrain3DView({
       maxElev
     );
 
+    // Build spatial hash index for realistic flat riverbed & floodplain valley carving
+    const valleyIndex = buildValleySpatialIndex(processedRivers);
+
     for (let i = 0; i < count; i++) {
       const vx = pos.getX(i);
       const vz = pos.getZ(i);
@@ -348,19 +353,8 @@ export default function SimulationTerrain3DView({
         normX, normZ, elevations, gridSize, minElev, maxElev
       );
 
-      let carvedY = yWorld;
-      if (processedRivers.length > 0) {
-        for (let rIdx = 0; rIdx < processedRivers.length; rIdx++) {
-          const r = processedRivers[rIdx];
-          const distRiver = distToPolyline(vx, vz, r.points);
-          const rWidth = r.points[0]?.width || 0.6;
-          const canyonWidth = Math.max(1.8, rWidth * 2.6);
-          if (distRiver < canyonWidth) {
-            const cutFraction = Math.pow(1 - distRiver / canyonWidth, 2);
-            carvedY = Math.max(1.1, carvedY - cutFraction * (2.2 + rWidth * 0.9));
-          }
-        }
-      }
+      // Hydrologically flatten the riverbed and alluvial valley floor along live rivers
+      const carvedY = carveValleyElevation(vx, vz, yWorld, valleyIndex);
 
       baseHeights[i] = carvedY;
       pos.setY(i, carvedY * vertExaggeration);
