@@ -166,8 +166,8 @@ export default function SimulationMapView({
       stability === "UNSTABLE" ||
       riverStage === "CATASTROPHIC_SURGE" ||
       (fos != null && fos < 1.0) ||
-      prob >= 75 ||
-      flProb >= 75
+      prob >= 72 ||
+      flProb >= 72
     ) {
       return "#dc2626";
     }
@@ -177,9 +177,9 @@ export default function SimulationMapView({
       sevBand === "MAJOR" ||
       stability === "MARGINAL" ||
       riverStage === "OVERBANK_FLOODING" ||
-      (fos != null && fos < 1.3) ||
-      prob >= 50 ||
-      flProb >= 50
+      (fos != null && fos < 1.25) ||
+      prob >= 45 ||
+      flProb >= 45
     ) {
       return "#ea580c";
     }
@@ -187,10 +187,11 @@ export default function SimulationMapView({
     // Amber: Moderate Advisory / Bankfull Warning
     if (
       sevBand === "MODERATE" ||
+      stability === "ADVISORY" ||
       riverStage === "BANKFULL_WARNING" ||
-      (fos != null && fos < 1.5) ||
-      prob >= 25 ||
-      flProb >= 25
+      (fos != null && fos < 1.45) ||
+      prob >= 22 ||
+      flProb >= 22
     ) {
       return "#d97706";
     }
@@ -548,8 +549,13 @@ export default function SimulationMapView({
 
         {/* ═══ CUSTOM SITE PINS WITH PULSING TARGET ICON ═══ */}
         {customSites.map((cs) => {
+          const simData = sites?.[cs.id] || cs;
           const isSel = selectedSite === cs.id;
-          const color = getSiteDisplayColor(cs);
+          const color = getSiteDisplayColor(simData);
+          const currentFos = simData.factor_of_safety ?? 1.75;
+          const sevBand = simData.severity_band || "MINOR";
+          const rain24 = simData.rainfall_24h_mm ?? 15;
+          const prob = simData.probability_percent ?? 10;
           return (
             <CircleMarker
               key={cs.id}
@@ -564,18 +570,18 @@ export default function SimulationMapView({
               eventHandlers={{ click: () => onSelectSite && onSelectSite(cs.id) }}
             >
               <Tooltip direction="top" offset={[0, -10]} opacity={0.95} permanent={isSel}>
-                <span>📍 <strong>{cs.name}</strong></span>
+                <span>📍 <strong>{cs.name}</strong> ({sevBand})</span>
               </Tooltip>
               <Popup>
                 <div style={{ fontSize: 13, lineHeight: 1.45, minWidth: 260 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <strong style={{ fontSize: 14 }}>📍 {cs.name}</strong>
                     <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: color + "22", color: color }}>
-                      {cs.hazard_typology === "COMPOUND" ? "🔮 Compound Gorge" : cs.hazard_typology === "FLOOD_ONLY" ? "🌊 Flood Basin" : "🏔️ Mountain Ridge"}
+                      {sevBand}
                     </span>
                   </div>
-                  <div style={{ color: "#64748b", fontSize: 11.5, marginTop: 2 }}>
-                    Elev: {cs.elevation_m}m · Slope: {cs.slope_deg}° · FoS: <strong>{cs.factor_of_safety}</strong>
+                  <div style={{ color: "#475569", fontSize: 11.5, marginTop: 4 }}>
+                    Elev: {cs.elevation_m}m · Slope: {cs.slope_deg}° · FoS: <strong>{currentFos}</strong> · Rain: <strong>{rain24}mm</strong> · Hazard: <strong>{prob}%</strong>
                   </div>
                   <div style={{ marginTop: 8, paddingTop: 6, borderTop: "1px solid #e2e8f0", fontSize: 11.5, display: "flex", flexDirection: "column", gap: 3 }}>
                     {cs.isConnectedToRiver ? (

@@ -42,8 +42,8 @@ function getSiteDisplayColor(data) {
     stability === "UNSTABLE" ||
     riverStage === "CATASTROPHIC_SURGE" ||
     (fos != null && fos < 1.0) ||
-    prob >= 75 ||
-    flProb >= 75
+    prob >= 72 ||
+    flProb >= 72
   ) {
     return "#dc2626";
   }
@@ -51,18 +51,19 @@ function getSiteDisplayColor(data) {
     sevBand === "MAJOR" ||
     stability === "MARGINAL" ||
     riverStage === "OVERBANK_FLOODING" ||
-    (fos != null && fos < 1.3) ||
-    prob >= 50 ||
-    flProb >= 50
+    (fos != null && fos < 1.25) ||
+    prob >= 45 ||
+    flProb >= 45
   ) {
     return "#ea580c";
   }
   if (
     sevBand === "MODERATE" ||
+    stability === "ADVISORY" ||
     riverStage === "BANKFULL_WARNING" ||
-    (fos != null && fos < 1.5) ||
-    prob >= 25 ||
-    flProb >= 25
+    (fos != null && fos < 1.45) ||
+    prob >= 22 ||
+    flProb >= 22
   ) {
     return "#d97706";
   }
@@ -523,9 +524,11 @@ export default function SimulationTerrain3DView({
     hazardCanvas.height = 64;
     hazardCanvasRef.current = hazardCanvas;
 
-    const allInitialSites = { ...sites };
+    const allInitialSites = { ...(sites || {}) };
     if (customSites && customSites.length > 0) {
-      customSites.forEach((cs) => { allInitialSites[cs.id] = cs; });
+      customSites.forEach((cs) => {
+        allInitialSites[cs.id] = { ...cs, ...(sites?.[cs.id] || {}) };
+      });
     }
     renderDynamicHazardHeatmap(hazardCanvas, allInitialSites, satelliteData, liveWaterways, hazardMode);
 
@@ -1154,16 +1157,17 @@ export default function SimulationTerrain3DView({
     floodSurgeMeshesRef.current = Object.values(floodMeshesMapRef.current).filter((f) => f.visible);
   }, [sites, customSites, selectedSite, vertExaggeration, satelliteData]);
 
-  // 3b. Dynamic Continuous Hazard Heatmap Synchronizer (Debounced & runs ONLY when in hazard mode)
+  // 3b. Dynamic Continuous Hazard Heatmap Synchronizer (Debounced & synchronized with all stations & custom points)
   useEffect(() => {
-    if (textureMode !== "hazard") return;
     if (!hazardCanvasRef.current || !hazardTextureRef.current) return;
 
     clearTimeout(heatmapTimerRef.current);
     heatmapTimerRef.current = setTimeout(() => {
-      const allCurrentSites = { ...sites };
+      const allCurrentSites = { ...(sites || {}) };
       if (customSites && customSites.length > 0) {
-        customSites.forEach((cs) => { allCurrentSites[cs.id] = cs; });
+        customSites.forEach((cs) => {
+          allCurrentSites[cs.id] = { ...cs, ...(sites?.[cs.id] || {}) };
+        });
       }
       renderDynamicHazardHeatmap(
         hazardCanvasRef.current,
@@ -1178,7 +1182,7 @@ export default function SimulationTerrain3DView({
       if (meshRef.current?.material) {
         meshRef.current.material.needsUpdate = true;
       }
-    }, 250);
+    }, 40);
 
     return () => clearTimeout(heatmapTimerRef.current);
   }, [sites, customSites, satelliteData, liveWaterways, hazardMode, textureMode]);

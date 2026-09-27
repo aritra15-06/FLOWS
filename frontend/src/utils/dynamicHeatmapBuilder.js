@@ -75,11 +75,34 @@ export function calculatePointSeverity(
     sumRain24h += r24 * w;
 
     let sSev = 0.15;
-    const isUnstable = s.stability_state === "UNSTABLE" || s.river_stage_state === "CATASTROPHIC_SURGE" || (s.factor_of_safety != null && s.factor_of_safety < 1.0);
-    const isMarginal = s.stability_state === "MARGINAL" || s.river_stage_state === "OVERBANK_FLOODING" || (s.factor_of_safety != null && s.factor_of_safety < 1.3);
+    const isUnstable =
+      s.stability_state === "UNSTABLE" ||
+      s.river_stage_state === "CATASTROPHIC_SURGE" ||
+      s.severity_band === "CATASTROPHIC_POTENTIAL" ||
+      s.compound_active ||
+      (s.factor_of_safety != null && s.factor_of_safety < 1.0) ||
+      (s.flood_probability_percent != null && s.flood_probability_percent >= 72) ||
+      (s.probability_percent != null && s.probability_percent >= 72);
+
+    const isMarginal =
+      s.stability_state === "MARGINAL" ||
+      s.river_stage_state === "OVERBANK_FLOODING" ||
+      s.severity_band === "MAJOR" ||
+      (s.factor_of_safety != null && s.factor_of_safety < 1.25) ||
+      (s.flood_probability_percent != null && s.flood_probability_percent >= 45) ||
+      (s.probability_percent != null && s.probability_percent >= 45);
+
+    const isModerate =
+      s.stability_state === "ADVISORY" ||
+      s.river_stage_state === "BANKFULL_WARNING" ||
+      s.severity_band === "MODERATE" ||
+      (s.factor_of_safety != null && s.factor_of_safety < 1.45) ||
+      (s.flood_probability_percent != null && s.flood_probability_percent >= 22) ||
+      (s.probability_percent != null && s.probability_percent >= 22);
+
     if (isUnstable) sSev = 0.95;
     else if (isMarginal) sSev = 0.65;
-    else if (s.river_stage_state === "BANKFULL_WARNING") sSev = 0.45;
+    else if (isModerate) sSev = 0.42;
     else sSev = Math.max(0.12, (s.probability_percent || 15) / 100);
     sumSiteSeverity += sSev * w;
   });
@@ -214,16 +237,32 @@ export function renderDynamicHazardHeatmap(
     const isUnstable =
       s.stability_state === "UNSTABLE" ||
       s.river_stage_state === "CATASTROPHIC_SURGE" ||
-      (s.factor_of_safety != null && s.factor_of_safety < 1.0);
+      s.severity_band === "CATASTROPHIC_POTENTIAL" ||
+      s.compound_active ||
+      (s.factor_of_safety != null && s.factor_of_safety < 1.0) ||
+      (s.flood_probability_percent != null && s.flood_probability_percent >= 72) ||
+      (s.probability_percent != null && s.probability_percent >= 72);
+
     const isMarginal =
       s.stability_state === "MARGINAL" ||
       s.river_stage_state === "OVERBANK_FLOODING" ||
-      (s.factor_of_safety != null && s.factor_of_safety < 1.3);
+      s.severity_band === "MAJOR" ||
+      (s.factor_of_safety != null && s.factor_of_safety < 1.25) ||
+      (s.flood_probability_percent != null && s.flood_probability_percent >= 45) ||
+      (s.probability_percent != null && s.probability_percent >= 45);
+
+    const isModerate =
+      s.stability_state === "ADVISORY" ||
+      s.river_stage_state === "BANKFULL_WARNING" ||
+      s.severity_band === "MODERATE" ||
+      (s.factor_of_safety != null && s.factor_of_safety < 1.45) ||
+      (s.flood_probability_percent != null && s.flood_probability_percent >= 22) ||
+      (s.probability_percent != null && s.probability_percent >= 22);
 
     let sScore = 0.15;
     if (isUnstable) sScore = 0.95;
     else if (isMarginal) sScore = 0.65;
-    else if (s.river_stage_state === "BANKFULL_WARNING") sScore = 0.45;
+    else if (isModerate) sScore = 0.42;
     else sScore = Math.max(0.12, (s.probability_percent || 15) / 100);
 
     stationList.push({ nx, nz, r24, sScore });

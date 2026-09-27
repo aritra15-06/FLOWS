@@ -343,71 +343,137 @@ export default function SimulationWorkspace() {
 
   // Dynamically integrate custom sites into the daily simulation frame
   customSites.forEach((cs) => {
-    const dayProgress = Math.max(1, Math.min(TOTAL_SIMULATION_DAYS, dayOfYear));
-    // Monsoon peak curve (centered around late July/August - days 45 to 80)
-    const peakFactor = Math.exp(-Math.pow((dayProgress - 62) / 22, 2));
+    // 1. Spatially interpolate weather & storm fronts from all 6 active regional stations
+    let wSum = 0.0001;
+    let interpRain1h = 0;
+    let interpRain24h = 0;
+    let nearestRegion = null;
+    let minRegionDistKm = 999;
 
-    // Daily rainfall: 10-18mm in dry baseline (June 1 / Oct), up to 135mm in peak cloudbursts
-    const dailyRain = Math.round(12 + peakFactor * 125);
-    const rainIntensity = (dailyRain / 12.0).toFixed(1);
+    Object.values(annualFrame.regions || {}).forEach((reg) => {
+      const rLat = Number(reg.latitude || 27.35);
+      const rLng = Number(reg.longitude || 88.55);
+      const dLat = (cs.latitude - rLat) * 111.32;
+      const dLng = (cs.longitude - rLng) * 111.32 * Math.cos((cs.latitude * Math.PI) / 180);
+      const distKm = Math.hypot(dLat, dLng);
+      if (distKm < minRegionDistKm) {
+        minRegionDistKm = distKm;
+        nearestRegion = reg;
+      }
+      const w = 1.0 / (Math.pow(distKm, 1.8) + 4.0);
+      wSum += w;
+      interpRain1h += (reg.rainfall_1h_mm || 1.5) * w;
+      interpRain24h += (reg.rainfall_24h_mm || 15.0) * w;
+    });
 
-    // Natural dry slope baseline factor of safety: safe at 1.70 - 1.95
-    const slopeDeg = cs.slope_deg || 24;
-    const baseFos = 1.85 - Math.max(0, (slopeDeg - 25) / 50.0) * 0.25;
+    let dailyRain = Math.round(interpRain24h / wSum);
+    let rain1h = Number((interpRain1h / wSum).toFixed(1));
 
-    // FoS degrades only under heavy monsoon saturation (daily rain > 60mm)
-    const rainImpact = (dailyRain / 140.0) * 0.85 * Math.min(1.4, slopeDeg / 28.0);
-    const currentFos = Math.max(0.72, parseFloat((baseFos - rainImpact).toFixed(2)));
-
-    // Landslide probability: very low (<15%) when FoS > 1.45, rises sharply when FoS < 1.15
-    let lsProb = 12;
-    if (currentFos < 1.0) lsProb = Math.min(96, Math.round(75 + (1.0 - currentFos) * 70));
-    else if (currentFos < 1.3) lsProb = Math.round(35 + (1.3 - currentFos) * 130);
-    else if (currentFos < 1.5) lsProb = Math.round(15 + (1.5 - currentFos) * 100);
-    else lsProb = Math.max(6, Math.round(14 - (currentFos - 1.5) * 20));
-
-    // Hydraulic river discharge: normal low flow (~15-20 m3/s), surging to ~95 m3/s in peak monsoon
-    const baseQ = 16;
-    const currentQ = Math.round(baseQ + peakFactor * (cs.hazard_typology !== "LANDSLIDE_ONLY" ? 78 : 6));
-    const stageRise = cs.hazard_typology !== "LANDSLIDE_ONLY" ? (0.2 + peakFactor * 2.6).toFixed(1) : 0;
-
-    let stabilityState = "STABLE";
-    let sevBand = "MINOR";
-    if (currentFos < 1.0 || lsProb >= 75) {
-      stabilityState = "UNSTABLE";
-      sevBand = "CATASTROPHIC_POTENTIAL";
-    } else if (currentFos < 1.3 || lsProb >= 45) {
-      stabilityState = "MARGINAL";
-      sevBand = "MAJOR";
-    } else if (currentFos < 1.5 || lsProb >= 25) {
-      sevBand = "MODERATE";
+    // Strong localized influence if adjacent to a pilot station (< 12 km)
+    if (nearestRegion && minRegionDistKm < 12.0) {
+      const alpha = Math.exp(-Math.pow(minRegionDistKm / 6.0, 2));
+      dailyRain = Math.round(dailyRain * (1 - alpha) + (nearestRegion.rainfall_24h_mm || dailyRain) * alpha);
+      rain1h = Number((rain1h * (1 - alpha) + (nearestRegion.rainfall_1h_mm || rain1h) * alpha).toFixed(1));
     }
 
+    // 2. Physical Geotechnical Limit Equilibrium Model (FoS & Landslide Probability)
+    const slopeDeg = cs.slope_deg || 22;
+    // Natural dry baseline: stable at 1.70 - 1.88
+    const baseFos = 1.82 - Math.max(0, (slopeDeg - 15) / 45.0) * 0.30;
+    const slopeSensitivity = 0.55 + 0.45 * Math.min(1.4, slopeDeg / 24.0);
+    const rainImpact = (dailyRain / 115.0) * 0.95 * slopeSensitivity;
+    const currentFos = Math.max(0.68, parseFloat((baseFos - rainImpact).toFixed(2)));
+
+    let lsProb = 10;
+    if (currentFos < 1.0) {
+      lsProb = Math.min(98, Math.round(76 + (1.0 - currentFos) * 75));
+    } else if (currentFos < 1.25) {
+      lsProb = Math.round(48 + (1.25 - currentFos) * 115);
+    } else if (currentFos < 1.45) {
+      lsProb = Math.round(22 + (1.45 - currentFos) * 130);
+    } else {
+      lsProb = Math.max(5, Math.round(18 - (currentFos - 1.45) * 35));
+    }
+
+    // 3. Hydrological River Flow & Flood Inundation Model
     let riverState = "NORMAL";
+    let currentQ = 14;
+    let stageRise = 0.2;
+    let flProb = 5;
+
     if (cs.hazard_typology !== "LANDSLIDE_ONLY") {
-      if (currentQ > 70) riverState = "CATASTROPHIC_SURGE";
-      else if (currentQ > 45) riverState = "OVERBANK_FLOODING";
-      else if (currentQ > 28) riverState = "BANKFULL_WARNING";
+      const isNearRiver = cs.isConnectedToRiver || (cs.nearestRiver && cs.nearestRiver.distanceKm <= 2.0);
+      if (isNearRiver) {
+        const rainSurge = Math.max(0, (dailyRain - 15) / 85.0);
+        currentQ = Math.round(14 + rainSurge * 72);
+        stageRise = Number((0.2 + rainSurge * 2.8).toFixed(1));
+        flProb = Math.min(96, Math.max(8, Math.round(rainSurge * 92)));
+
+        if (currentQ >= 65 || dailyRain >= 95 || flProb >= 72) {
+          riverState = "CATASTROPHIC_SURGE";
+        } else if (currentQ >= 42 || dailyRain >= 58 || flProb >= 45) {
+          riverState = "OVERBANK_FLOODING";
+        } else if (currentQ >= 26 || dailyRain >= 32 || flProb >= 22) {
+          riverState = "BANKFULL_WARNING";
+        }
+      }
+    }
+
+    // 4. Dynamic Multi-Hazard Severity Classification
+    let stabilityState = "STABLE";
+    let sevBand = "MINOR";
+
+    const isCritical =
+      (cs.hazard_typology !== "FLOOD_ONLY" && (currentFos < 1.0 || lsProb >= 72)) ||
+      (cs.hazard_typology !== "LANDSLIDE_ONLY" && (riverState === "CATASTROPHIC_SURGE" || flProb >= 72)) ||
+      (cs.hazard_typology === "COMPOUND" && (currentFos < 1.15 && riverState !== "NORMAL"));
+
+    const isMajor =
+      (cs.hazard_typology !== "FLOOD_ONLY" && (currentFos < 1.25 || lsProb >= 45)) ||
+      (cs.hazard_typology !== "LANDSLIDE_ONLY" && (riverState === "OVERBANK_FLOODING" || flProb >= 45));
+
+    const isModerate =
+      (cs.hazard_typology !== "FLOOD_ONLY" && (currentFos < 1.45 || lsProb >= 22)) ||
+      (cs.hazard_typology !== "LANDSLIDE_ONLY" && (riverState === "BANKFULL_WARNING" || flProb >= 22));
+
+    if (isCritical) {
+      stabilityState = "UNSTABLE";
+      sevBand = "CATASTROPHIC_POTENTIAL";
+    } else if (isMajor) {
+      stabilityState = "MARGINAL";
+      sevBand = "MAJOR";
+    } else if (isModerate) {
+      stabilityState = "ADVISORY";
+      sevBand = "MODERATE";
+    } else {
+      stabilityState = "STABLE";
+      sevBand = "MINOR";
     }
 
     const isCompoundActive =
       cs.hazard_typology === "COMPOUND" &&
-      currentFos < 1.1 &&
-      currentQ > 55 &&
-      dailyRain > 65;
+      (currentFos < 1.15 || lsProb >= 60) &&
+      (riverState === "OVERBANK_FLOODING" || riverState === "CATASTROPHIC_SURGE" || dailyRain > 65);
 
     activeSimSites[cs.id] = {
       ...cs,
       factor_of_safety: Number(currentFos),
-      probability_percent: cs.hazard_typology === "FLOOD_ONLY" ? 5 : lsProb,
-      stability_state: cs.hazard_typology === "FLOOD_ONLY" ? "STABLE" : stabilityState,
+      probability_percent: cs.hazard_typology === "FLOOD_ONLY" ? flProb : lsProb,
+      stability_state:
+        cs.hazard_typology === "FLOOD_ONLY"
+          ? riverState === "CATASTROPHIC_SURGE"
+            ? "UNSTABLE"
+            : riverState === "OVERBANK_FLOODING"
+            ? "MARGINAL"
+            : "STABLE"
+          : stabilityState,
       severity_band: sevBand,
-      rainfall_1h_mm: Number(rainIntensity),
+      rainfall_1h_mm: rain1h,
       rainfall_24h_mm: dailyRain,
       peak_discharge_m3s: currentQ,
-      inundation_depth_m: Number(stageRise),
+      inundation_depth_m: stageRise,
       river_stage_state: riverState,
-      flood_probability_percent: cs.hazard_typology === "LANDSLIDE_ONLY" ? 0 : Math.min(95, Math.round(peakFactor * 88)),
+      flood_probability_percent: cs.hazard_typology === "LANDSLIDE_ONLY" ? 0 : flProb,
       compound_active: isCompoundActive,
       compound_pathway: isCompoundActive ? "Toe-Erosion Triggered Planar Slip + Damming Risk" : null,
       roadBlocked: currentFos < 0.95 || (cs.hazard_typology !== "LANDSLIDE_ONLY" && currentQ > 65),
@@ -1238,19 +1304,41 @@ export default function SimulationWorkspace() {
             let badgeBg = "#dcfce7";
             let badgeTextColor = "#166534";
 
-            if (isCompound || riverStage === "CATASTROPHIC_SURGE" || (typology !== "FLOOD_ONLY" && (sevBand === "CATASTROPHIC_POTENTIAL" || (fos != null && fos < 1.0)))) {
+            if (
+              isCompound ||
+              riverStage === "CATASTROPHIC_SURGE" ||
+              sevBand === "CATASTROPHIC_POTENTIAL" ||
+              stability === "UNSTABLE" ||
+              (fos != null && fos < 1.0) ||
+              probPercent >= 72 ||
+              floodProb >= 72
+            ) {
               sevClass = "severity-critical";
               badgeText = isCompound ? "Compound Crisis" : riverStage === "CATASTROPHIC_SURGE" ? "Catastrophic Surge" : "Critical Failure";
               dotColor = "#dc2626"; // red
               badgeBg = "#fee2e2";
               badgeTextColor = "#991b1b";
-            } else if (riverStage === "OVERBANK_FLOODING" || (typology !== "FLOOD_ONLY" && (sevBand === "MAJOR" || (fos != null && fos < 1.3)))) {
+            } else if (
+              riverStage === "OVERBANK_FLOODING" ||
+              sevBand === "MAJOR" ||
+              stability === "MARGINAL" ||
+              (fos != null && fos < 1.25) ||
+              probPercent >= 45 ||
+              floodProb >= 45
+            ) {
               sevClass = "severity-major";
               badgeText = riverStage === "OVERBANK_FLOODING" ? "Overbank Flood" : "Major Warning";
               dotColor = "#ea580c"; // orange
               badgeBg = "#ffedd5";
               badgeTextColor = "#c2410c";
-            } else if (riverStage === "BANKFULL_WARNING" || (typology !== "FLOOD_ONLY" && (sevBand === "MODERATE" || (fos != null && fos < 1.5)))) {
+            } else if (
+              riverStage === "BANKFULL_WARNING" ||
+              sevBand === "MODERATE" ||
+              stability === "ADVISORY" ||
+              (fos != null && fos < 1.45) ||
+              probPercent >= 22 ||
+              floodProb >= 22
+            ) {
               sevClass = "severity-moderate";
               badgeText = riverStage === "BANKFULL_WARNING" ? "Bankfull Alert" : "Moderate Warning";
               dotColor = "#d97706"; // amber
