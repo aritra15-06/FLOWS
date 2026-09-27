@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request
+from typing import Optional
 import json
 import os
 
@@ -7,21 +8,23 @@ from gis.impact_engine import compute_impact
 router = APIRouter()
 
 @router.get("/impact/{location_id}")
-def get_impact(location_id: str, request: Request):
+def get_impact(location_id: str, request: Request, lat: Optional[float] = None, lon: Optional[float] = None, radius: Optional[float] = 6500.0):
     ps = getattr(request.app.state, "prediction_service", None)
-    lat, lon = 27.5, 88.6
     
-    if ps and location_id in ps.locations:
-        loc = ps.locations[location_id]
-        lat = loc.get("latitude", 27.5)
-        lon = loc.get("longitude", 88.6)
-    else:
-        # Try finding case-insensitively
-        if ps:
+    target_lat = lat
+    target_lon = lon
+
+    if target_lat is None or target_lon is None:
+        target_lat, target_lon = 27.5, 88.6
+        if ps and location_id in ps.locations:
+            loc = ps.locations[location_id]
+            target_lat = loc.get("latitude", 27.5)
+            target_lon = loc.get("longitude", 88.6)
+        elif ps:
             for k, v in ps.locations.items():
                 if str(k).upper() == str(location_id).upper():
-                    lat = v.get("latitude", 27.5)
-                    lon = v.get("longitude", 88.6)
+                    target_lat = v.get("latitude", 27.5)
+                    target_lon = v.get("longitude", 88.6)
                     break
 
     seed_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "seed")
@@ -45,5 +48,5 @@ def get_impact(location_id: str, request: Request):
     except Exception:
         pass
 
-    impact = compute_impact(lat, lon, 3000.0, villages, roads, bridges)
+    impact = compute_impact(target_lat, target_lon, radius, villages, roads, bridges)
     return impact

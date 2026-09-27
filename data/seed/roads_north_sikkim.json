@@ -1,5 +1,6 @@
 [
-    {"id": "r1", "name": "NH-10", "coordinates": [[27.177, 88.533], [27.233, 88.506], [27.510, 88.532], [27.601, 88.651]]},
-    {"id": "r2", "name": "SH-1", "coordinates": [[27.601, 88.651], [27.695, 88.746]]},
-    {"id": "r3", "name": "SH-2", "coordinates": [[27.601, 88.651], [27.729, 88.555]]}
+    {"id": "r1", "name": "NH-10 (National Highway - Life-line)", "coordinates": [[27.177, 88.533], [27.233, 88.506], [27.385, 88.521], [27.510, 88.532], [27.601, 88.651]]},
+    {"id": "r2", "name": "SH-1 (Chungthang-Lachung State Highway)", "coordinates": [[27.601, 88.651], [27.695, 88.746]]},
+    {"id": "r3", "name": "SH-2 (Chungthang-Lachen Defense Highway)", "coordinates": [[27.601, 88.651], [27.671, 88.580], [27.729, 88.555]]},
+    {"id": "r4", "name": "Dzongu Access Road (Sankalang-Passingdang)", "coordinates": [[27.510, 88.532], [27.535, 88.555], [27.525, 88.542], [27.562, 88.515]]}
 ]

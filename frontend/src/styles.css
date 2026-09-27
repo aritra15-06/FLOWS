@@ -1640,4 +1640,20 @@ table { border-collapse: collapse; width: 100%; }
   box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.4);
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 

@@ -42,9 +42,10 @@ export const apiClient = {
     }
   },
 
-  getImpact: async (locationId) => {
+  getImpact: async (locationId, lat = null, lon = null) => {
     try {
-      const res = await fetch(`${BASE_URL}/impact/${locationId}`);
+      const q = (lat != null && lon != null) ? `?lat=${lat}&lon=${lon}` : '';
+      const res = await fetch(`${BASE_URL}/impact/${locationId}${q}`);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       return await res.json();
     } catch (err) {

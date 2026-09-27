@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import FloodAnimation from './FloodAnimation';
 
 function fmtN(v, d = 2) { return v != null ? Number(v).toFixed(d) : '–'; }
@@ -21,6 +20,65 @@ function buildHydrograph(peakQ = 50, arrivalH = 3, tcH = 2) {
     pts.push({ t: `${t.toFixed(1)}h`, q: Math.max(0, q) });
   }
   return pts;
+}
+
+function HydrographChart({ data, peakQ, bankfullQ }) {
+  const W = 320;
+  const H = 140;
+  const padL = 42;
+  const padR = 15;
+  const padT = 15;
+  const padB = 25;
+  const maxQ = Math.max(bankfullQ * 1.25, peakQ * 1.25, 60);
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  const points = data.map((pt, i) => {
+    const x = padL + (i / (data.length - 1)) * chartW;
+    const y = padT + chartH - (pt.q / maxQ) * chartH;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+
+  const areaPoints = `${padL},${padT + chartH} ${points} ${padL + chartW},${padT + chartH}`;
+  const bankfullY = padT + chartH - (bankfullQ / maxQ) * chartH;
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+      {/* Grid Lines */}
+      {[0, 0.5, 1.0].map((ratio) => {
+        const y = padT + chartH * (1 - ratio);
+        const qVal = Math.round(maxQ * ratio);
+        return (
+          <g key={ratio}>
+            <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="2 2" />
+            <text x={padL - 6} y={y + 3} textAnchor="end" fill="#64748b" fontSize="8" fontWeight="600">{qVal}</text>
+          </g>
+        );
+      })}
+
+      {/* Time axis */}
+      {['0h', '2h', '4h', '6h'].map((label, idx) => {
+        const x = padL + (idx / 3) * chartW;
+        return (
+          <text key={label} x={x} y={H - 8} textAnchor="middle" fill="#64748b" fontSize="8" fontWeight="600">{label}</text>
+        );
+      })}
+
+      {/* Area fill under curve */}
+      <polygon points={areaPoints} fill="rgba(14, 165, 233, 0.18)" />
+
+      {/* Bankfull Warning Datum line */}
+      {bankfullY >= padT && (
+        <g>
+          <line x1={padL} y1={bankfullY} x2={W - padR} y2={bankfullY} stroke="#ef4444" strokeWidth="1.2" strokeDasharray="3 2" />
+          <text x={W - padR} y={bankfullY - 3} textAnchor="end" fill="#ef4444" fontSize="7.5" fontWeight="800">Bankfull ({bankfullQ} m³/s)</text>
+        </g>
+      )}
+
+      {/* Hydrograph Curve */}
+      <polyline points={points} fill="none" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 export default function FloodPanel({ pred }) {
@@ -59,31 +117,21 @@ export default function FloodPanel({ pred }) {
       {/* Bankfull warning */}
       {peakQ > bankfullQ && (
         <div className="bankfull-warn">
-          ⚠ Peak discharge exceeds bankfull capacity ({bankfullQ} m³/s) — overbank flooding expected
+          ⚠️ Peak discharge exceeds bankfull capacity ({bankfullQ} m³/s) — overbank flooding expected
         </div>
       )}
 
       {/* Toggle animation / hydrograph */}
       <div className="flood-view-toggle">
-        <button className={`fvt-btn ${showAnim ? 'active' : ''}`} onClick={() => setShowAnim(true)}>Valley Animation</button>
-        <button className={`fvt-btn ${!showAnim ? 'active' : ''}`} onClick={() => setShowAnim(false)}>Hydrograph</button>
+        <button className={`fvt-btn ${showAnim ? 'active' : ''}`} onClick={() => setShowAnim(true)}>🌊 Valley Animation</button>
+        <button className={`fvt-btn ${!showAnim ? 'active' : ''}`} onClick={() => setShowAnim(false)}>📈 Hydrograph</button>
       </div>
 
       {showAnim ? (
         <FloodAnimation floodData={fl} />
       ) : (
-        <div className="hydro-chart">
-          <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={hydro} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-              <XAxis dataKey="t" tick={{ fill: '#64748b', fontSize: 10 }} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 10 }} width={40} />
-              <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#0f172a', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} formatter={(v) => [`${v.toFixed(0)} m³/s`, 'Discharge']} />
-              {peakQ > 5 && (
-                <ReferenceLine y={bankfullQ} stroke="rgba(239,68,68,0.6)" strokeDasharray="4 2" label={{ value: 'Bankfull', fill: '#ef4444', fontSize: 9 }} />
-              )}
-              <Line type="monotone" dataKey="q" stroke="#0ea5e9" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="hydro-chart" style={{ padding: '6px 0' }}>
+          <HydrographChart data={hydro} peakQ={peakQ} bankfullQ={bankfullQ} />
         </div>
       )}
 

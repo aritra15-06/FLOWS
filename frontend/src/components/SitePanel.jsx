@@ -12,19 +12,38 @@ function safeNum(val, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-export default function SitePanel() {
+export function SitePanel() {
   const { selectedLocation } = useAppContext();
   const { lastPrediction } = useSimulationContext();
   const [impact, setImpact] = useState(null);
   const [section, setSection] = useState('risk'); // 'risk' | 'flood' | 'impact'
+  const [isCouplingModalOpen, setIsCouplingModalOpen] = useState(false);
+  const [autoPoppedLocId, setAutoPoppedLocId] = useState(null);
 
   const locId = selectedLocation?.location_id || selectedLocation?.id;
+  const lat = safeNum(selectedLocation?.lat ?? selectedLocation?.latitude, 27.5);
+  const lng = safeNum(selectedLocation?.lng ?? selectedLocation?.lon ?? selectedLocation?.longitude, 88.6);
 
   useEffect(() => {
     if (locId) {
-      apiClient.getImpact(locId).then(setImpact).catch(() => {});
+      apiClient.getImpact(locId, lat, lng).then(setImpact).catch(() => {});
     }
-  }, [locId]);
+  }, [locId, lat, lng]);
+
+  const pred = lastPrediction?.[locId];
+  const physOut = pred?.prediction?.physics_output || {};
+  const cp = pred?.prediction?.hazards?.compound || {};
+  const elevation = selectedLocation?.elevation_m || selectedLocation?.elevation;
+  const road = selectedLocation?.primary_road;
+
+  // Auto-trigger Coupling Active Pop-up Menu when severe compound threat is active
+  const hasCoupling = (cp.activated_pathways && cp.activated_pathways.length > 0) || selectedLocation?.compound_active;
+  useEffect(() => {
+    if (hasCoupling && autoPoppedLocId !== locId) {
+      setIsCouplingModalOpen(true);
+      setAutoPoppedLocId(locId);
+    }
+  }, [hasCoupling, locId, autoPoppedLocId]);
 
   if (!selectedLocation) {
     return (
@@ -34,14 +53,6 @@ export default function SitePanel() {
       </div>
     );
   }
-
-  const pred = lastPrediction?.[locId];
-  const physOut = pred?.prediction?.physics_output || {};
-  const cp = pred?.prediction?.hazards?.compound || {};
-  const elevation = selectedLocation.elevation_m || selectedLocation.elevation;
-  const road = selectedLocation.primary_road;
-  const lat = safeNum(selectedLocation.lat ?? selectedLocation.latitude, 27.5);
-  const lng = safeNum(selectedLocation.lng ?? selectedLocation.lon ?? selectedLocation.longitude, 88.6);
 
   return (
     <div className="right-panel">
@@ -62,6 +73,28 @@ export default function SitePanel() {
               }}>
                 {selectedLocation.hazard_typology === 'COMPOUND' ? '🔮 Compound Gorge' : selectedLocation.hazard_typology === 'LANDSLIDE_ONLY' ? '🏔️ Alpine Ridge Cut' : '🌊 Valley Basin Flat'}
               </span>
+            )}
+            {hasCoupling && (
+              <button
+                onClick={() => setIsCouplingModalOpen(true)}
+                style={{
+                  fontSize: '0.66rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  background: '#7e22ce',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  boxShadow: '0 1px 3px rgba(126, 34, 206, 0.35)'
+                }}
+                title="Click to view detailed Cascade Coupling Modal"
+              >
+                <span>⚡ Coupling Active</span>
+              </button>
             )}
           </div>
           <div className="site-meta" style={{ marginTop: 4 }}>
@@ -92,79 +125,209 @@ export default function SitePanel() {
         <ErrorBoundary fallbackMessage="Error loading details for this tab.">
           {section === 'risk' && <RiskGauge />}
           {section === 'flood' && <FloodPanel pred={pred} />}
-          {section === 'impact' && <ImpactView impact={impact} />}
+          {section === 'impact' && <ImpactView impact={impact} stabilityState={physOut.stability_state} />}
         </ErrorBoundary>
       </div>
 
-      {/* Compound pathway strip */}
-      {cp.activated_pathways?.length > 0 && (
-        <CompoundPathway pathways={cp.activated_pathways} summary={cp.summary} />
+      {/* Interactive Compound Coupling Modal & Trigger */}
+      {hasCoupling && (
+        <CompoundPathway
+          pathways={cp.activated_pathways || ["TOE_EROSION_PLANAR_SLIP"]}
+          summary={cp.summary || selectedLocation?.compound_pathway || "High pore pressure & toe erosion coupling active."}
+          siteName={selectedLocation.name || locId}
+          isOpen={isCouplingModalOpen}
+          onClose={() => setIsCouplingModalOpen(false)}
+          onOpen={() => setIsCouplingModalOpen(true)}
+        />
       )}
     </div>
   );
 }
 
-function ImpactView({ impact }) {
-  if (!impact) return <div className="loading-text">Loading impact data…</div>;
+function ImpactView({ impact, stabilityState }) {
+  if (!impact) return <div className="loading-text" style={{ padding: 16 }}>Loading geospatial impact telemetry…</div>;
   const villages = impact.affected_villages || [];
   const roads = impact.affected_roads || [];
+  const bridges = impact.affected_bridges || [];
   const pop = impact.total_population_at_risk || 0;
 
   return (
-    <div className="impact-view">
+    <div className="impact-view" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* KPI Stats Grid */}
       <div className="impact-stat-row">
         <div className="impact-stat">
-          <span className="impact-num" style={{ color: 'var(--hazard-warning)' }}>{villages.length}</span>
-          <span className="impact-lbl">Villages at risk</span>
+          <span className="impact-num" style={{ color: 'var(--hazard-critical)' }}>{pop.toLocaleString()}</span>
+          <span className="impact-lbl">Exposed Population</span>
         </div>
         <div className="impact-stat">
-          <span className="impact-num" style={{ color: 'var(--hazard-critical)' }}>{pop.toLocaleString()}</span>
-          <span className="impact-lbl">People exposed</span>
+          <span className="impact-num" style={{ color: 'var(--hazard-warning)' }}>{villages.length}</span>
+          <span className="impact-lbl">Settlements at Risk</span>
         </div>
         <div className="impact-stat">
           <span className="impact-num" style={{ color: 'var(--flood-primary)' }}>{roads.length}</span>
-          <span className="impact-lbl">Roads affected</span>
+          <span className="impact-lbl">Access Corridors</span>
         </div>
+        {bridges.length > 0 && (
+          <div className="impact-stat">
+            <span className="impact-num" style={{ color: '#8b5cf6' }}>{bridges.length}</span>
+            <span className="impact-lbl">River Bridges</span>
+          </div>
+        )}
       </div>
 
+      {/* Affected Settlements Table */}
       {villages.length > 0 && (
         <div className="impact-table-section">
-          <div className="impact-section-title">Affected Settlements</div>
+          <div className="impact-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🏘️ Proximity Settlements & Evacuation Tiers</span>
+            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>NDMA Action Priority</span>
+          </div>
           <table className="impact-table">
-            <thead><tr><th>Village</th><th>Distance</th><th>Pop.</th><th>Tier</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Village</th>
+                <th>Distance</th>
+                <th>Pop.</th>
+                <th>Action Directive</th>
+              </tr>
+            </thead>
             <tbody>
-              {villages.map((v, i) => (
-                <tr key={i}>
-                  <td>{v.name || '–'}</td>
-                  <td>{v.distance_m ? (v.distance_m / 1000).toFixed(1) + ' km' : '–'}</td>
-                  <td>{v.population || '–'}</td>
-                  <td>
-                    <span style={{
-                      color: v.tier === 'EVACUATE_NOW' ? 'var(--hazard-critical)' : v.tier === 'PREPARE' ? 'var(--hazard-warning)' : 'var(--hazard-watch)',
-                      fontSize: '0.7rem', fontWeight: 600,
-                    }}>{v.tier}</span>
-                  </td>
-                </tr>
-              ))}
+              {villages.map((v, i) => {
+                const tier = v.tier === 'EVACUATE_NOW' || stabilityState === 'UNSTABLE'
+                  ? 'EVACUATE_NOW'
+                  : v.tier === 'PREPARE'
+                  ? 'PREPARE'
+                  : 'WATCH';
+
+                const tierColor = tier === 'EVACUATE_NOW' ? '#dc2626' : tier === 'PREPARE' ? '#d97706' : '#0284c7';
+                const tierBg = tier === 'EVACUATE_NOW' ? '#fee2e2' : tier === 'PREPARE' ? '#fef3c7' : '#e0f2fe';
+                const tierText = tier === 'EVACUATE_NOW' ? '🚨 EVACUATE NOW' : tier === 'PREPARE' ? '⚠️ PREPARE' : '👁️ WATCH';
+
+                return (
+                  <tr key={i}>
+                    <td><strong>{v.name || '–'}</strong></td>
+                    <td>{v.distance_m != null ? `${(v.distance_m / 1000).toFixed(1)} km` : '–'}</td>
+                    <td>{v.population ? v.population.toLocaleString() : '–'}</td>
+                    <td>
+                      <span style={{
+                        color: tierColor,
+                        background: tierBg,
+                        padding: '2px 6px',
+                        borderRadius: 4,
+                        fontSize: '0.66rem',
+                        fontWeight: 700,
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {tierText}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
+      {/* Roadway & Highway Status */}
       {roads.length > 0 && (
         <div className="impact-table-section">
-          <div className="impact-section-title">Road Status</div>
-          {roads.map((r, i) => (
-            <div key={i} className="road-row">
-              <span className="road-name">{r.name || r.ref || 'Unnamed Road'}</span>
-              <span className="road-status" style={{ color: r.status === 'BLOCKED' ? 'var(--hazard-critical)' : 'var(--hazard-watch)' }}>
-                {r.status}
-              </span>
-              <span className="road-dist">{r.distance_m ? (r.distance_m / 1000).toFixed(1) + ' km' : ''}</span>
-            </div>
-          ))}
+          <div className="impact-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🛣️ Transportation Corridors & Road Access</span>
+            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>BRO / PWD Status</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+            {roads.map((r, i) => {
+              const isBlocked = r.status === 'BLOCKED' || stabilityState === 'UNSTABLE';
+              const isRestricted = !isBlocked && r.status === 'RESTRICTED';
+              const statusColor = isBlocked ? '#dc2626' : isRestricted ? '#d97706' : '#16a34a';
+              const statusBg = isBlocked ? '#fee2e2' : isRestricted ? '#fef3c7' : '#dcfce7';
+              const statusLabel = isBlocked ? '🚨 BLOCKED / DEBRIS DAM' : isRestricted ? '⚠️ RESTRICTED ACCESS' : '✓ CAUTION / OPEN';
+
+              return (
+                <div
+                  key={i}
+                  style={{
+                    padding: '8px 10px',
+                    background: '#f8fafc',
+                    borderRadius: 6,
+                    border: '1px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.72rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <strong>{r.name || 'Unnamed Corridor'}</strong>
+                    <span style={{ color: '#64748b', fontSize: '0.68rem' }}>
+                      {r.distance_m != null ? `Proximity: ${(r.distance_m / 1000).toFixed(1)} km to hazard centroid` : 'Direct alignment'}
+                    </span>
+                  </div>
+                  <span style={{
+                    color: statusColor,
+                    background: statusBg,
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {statusLabel}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Critical River Bridges */}
+      {bridges.length > 0 && (
+        <div className="impact-table-section">
+          <div className="impact-section-title">
+            <span>🌉 Critical River Infrastructure</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+            {bridges.map((b, i) => {
+              const isRisk = b.status === 'IMMINENT_COLLAPSE' || b.status === 'SUBMERGENCE_RISK';
+              return (
+                <div
+                  key={i}
+                  style={{
+                    padding: '8px 10px',
+                    background: isRisk ? '#fdf2f8' : '#f8fafc',
+                    borderRadius: 6,
+                    border: `1px solid ${isRisk ? '#fbcfe8' : '#e2e8f0'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.72rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <strong>{b.name}</strong>
+                    <span style={{ color: '#64748b', fontSize: '0.68rem' }}>
+                      Distance: {(b.distance_m / 1000).toFixed(1)} km
+                    </span>
+                  </div>
+                  <span style={{
+                    color: isRisk ? '#be185d' : '#0369a1',
+                    background: isRisk ? '#fce7f3' : '#e0f2fe',
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    fontWeight: 700,
+                    fontSize: '0.66rem'
+                  }}>
+                    {b.status.replace(/_/g, ' ')}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+export default SitePanel;

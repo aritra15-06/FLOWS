@@ -1,10 +1,18 @@
 [
     {"id": "v1", "name": "Chungthang", "lat": 27.601, "lon": 88.651, "population": 4000},
     {"id": "v2", "name": "Lachung", "lat": 27.695, "lon": 88.746, "population": 2500},
-    {"id": "v3", "name": "Lachen", "lat": 27.729, "lon": 88.555, "population": 1000},
-    {"id": "v4", "name": "Mangan", "lat": 27.510, "lon": 88.532, "population": 5000},
-    {"id": "v5", "name": "Singtam", "lat": 27.233, "lon": 88.506, "population": 6000},
-    {"id": "v6", "name": "Rangpo", "lat": 27.177, "lon": 88.533, "population": 10000},
-    {"id": "v7", "name": "Dikchu", "lat": 27.385, "lon": 88.521, "population": 1500},
-    {"id": "v8", "name": "Phodong", "lat": 27.469, "lon": 88.518, "population": 2000}
+    {"id": "v3", "name": "Lachen", "lat": 27.729, "lon": 88.555, "population": 1500},
+    {"id": "v4", "name": "Munshithang", "lat": 27.671, "lon": 88.580, "population": 850},
+    {"id": "v5", "name": "Pegong", "lat": 27.632, "lon": 88.615, "population": 920},
+    {"id": "v6", "name": "Passingdang (Dzongu)", "lat": 27.525, "lon": 88.542, "population": 1800},
+    {"id": "v7", "name": "Tingvong (Upper Dzongu)", "lat": 27.562, "lon": 88.515, "population": 1250},
+    {"id": "v8", "name": "Lingthem", "lat": 27.540, "lon": 88.530, "population": 950},
+    {"id": "v9", "name": "Sankalang", "lat": 27.535, "lon": 88.555, "population": 1100},
+    {"id": "v10", "name": "Mangan", "lat": 27.510, "lon": 88.532, "population": 5200},
+    {"id": "v11", "name": "Phodong", "lat": 27.469, "lon": 88.518, "population": 2100},
+    {"id": "v12", "name": "Dikchu", "lat": 27.385, "lon": 88.521, "population": 2300},
+    {"id": "v13", "name": "Sirwani", "lat": 27.290, "lon": 88.510, "population": 1400},
+    {"id": "v14", "name": "Singtam", "lat": 27.233, "lon": 88.506, "population": 6800},
+    {"id": "v15", "name": "Rangpo", "lat": 27.177, "lon": 88.533, "population": 10500},
+    {"id": "v16", "name": "Tarku", "lat": 27.215, "lon": 88.475, "population": 1900}
 ]
