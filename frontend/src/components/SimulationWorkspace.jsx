@@ -268,7 +268,7 @@ function analyzeCustomCoordinates(lat, lng) {
     const gradX = Math.abs(e10 - e00) / dxMeters;
     const gradZ = Math.abs(e01 - e00) / dzMeters;
     const grad = Math.hypot(gradX, gradZ);
-    computedSlope = Math.max(6, Math.min(52, Math.round((Math.atan(grad) * 180 / Math.PI) * 4.2)));
+    computedSlope = Math.max(4, Math.min(48, Math.round((Math.atan(grad) * 180) / Math.PI)));
     if (riverTrace.isConnectedToRiver && satElevation < 600) {
       computedSlope = Math.min(10, computedSlope); // River basin flat
     }
@@ -276,7 +276,7 @@ function analyzeCustomCoordinates(lat, lng) {
 
   let typology = "LANDSLIDE_ONLY";
   let typologyLabel = "🏔️ Mountain Ridge / Pass";
-  if (riverTrace.isConnectedToRiver && computedSlope > 22) {
+  if (riverTrace.isConnectedToRiver && computedSlope > 28) {
     typology = "COMPOUND";
     typologyLabel = "🔮 Compound River Gorge";
   } else if (riverTrace.isConnectedToRiver) {
@@ -344,27 +344,42 @@ export default function SimulationWorkspace() {
   // Dynamically integrate custom sites into the daily simulation frame
   customSites.forEach((cs) => {
     const dayProgress = Math.max(1, Math.min(TOTAL_SIMULATION_DAYS, dayOfYear));
-    const peakFactor = Math.exp(-Math.pow((dayProgress - 60) / 25, 2));
-    const dailyRain = Math.round(14 + peakFactor * 145);
+    // Monsoon peak curve (centered around late July/August - days 45 to 80)
+    const peakFactor = Math.exp(-Math.pow((dayProgress - 62) / 22, 2));
+
+    // Daily rainfall: 10-18mm in dry baseline (June 1 / Oct), up to 135mm in peak cloudbursts
+    const dailyRain = Math.round(12 + peakFactor * 125);
     const rainIntensity = (dailyRain / 12.0).toFixed(1);
 
-    const baseFos = 1.8 - (cs.slope_deg / 45.0) * 0.8;
-    const currentFos = Math.max(0.72, baseFos - (dailyRain / 150.0) * 0.65).toFixed(2);
-    const lsProb = Math.min(96, Math.max(8, Math.round((1.7 - currentFos) * 85)));
+    // Natural dry slope baseline factor of safety: safe at 1.70 - 1.95
+    const slopeDeg = cs.slope_deg || 24;
+    const baseFos = 1.85 - Math.max(0, (slopeDeg - 25) / 50.0) * 0.25;
 
-    const baseQ = 18;
-    const currentQ = Math.round(baseQ + peakFactor * (cs.hazard_typology !== "LANDSLIDE_ONLY" ? 82 : 8));
-    const stageRise = cs.hazard_typology !== "LANDSLIDE_ONLY" ? (0.3 + peakFactor * 2.8).toFixed(1) : 0;
+    // FoS degrades only under heavy monsoon saturation (daily rain > 60mm)
+    const rainImpact = (dailyRain / 140.0) * 0.85 * Math.min(1.4, slopeDeg / 28.0);
+    const currentFos = Math.max(0.72, parseFloat((baseFos - rainImpact).toFixed(2)));
+
+    // Landslide probability: very low (<15%) when FoS > 1.45, rises sharply when FoS < 1.15
+    let lsProb = 12;
+    if (currentFos < 1.0) lsProb = Math.min(96, Math.round(75 + (1.0 - currentFos) * 70));
+    else if (currentFos < 1.3) lsProb = Math.round(35 + (1.3 - currentFos) * 130);
+    else if (currentFos < 1.5) lsProb = Math.round(15 + (1.5 - currentFos) * 100);
+    else lsProb = Math.max(6, Math.round(14 - (currentFos - 1.5) * 20));
+
+    // Hydraulic river discharge: normal low flow (~15-20 m3/s), surging to ~95 m3/s in peak monsoon
+    const baseQ = 16;
+    const currentQ = Math.round(baseQ + peakFactor * (cs.hazard_typology !== "LANDSLIDE_ONLY" ? 78 : 6));
+    const stageRise = cs.hazard_typology !== "LANDSLIDE_ONLY" ? (0.2 + peakFactor * 2.6).toFixed(1) : 0;
 
     let stabilityState = "STABLE";
     let sevBand = "MINOR";
-    if (currentFos < 1.0 || lsProb > 75) {
+    if (currentFos < 1.0 || lsProb >= 75) {
       stabilityState = "UNSTABLE";
       sevBand = "CATASTROPHIC_POTENTIAL";
-    } else if (currentFos < 1.3 || lsProb > 45) {
+    } else if (currentFos < 1.3 || lsProb >= 45) {
       stabilityState = "MARGINAL";
       sevBand = "MAJOR";
-    } else if (currentFos < 1.5) {
+    } else if (currentFos < 1.5 || lsProb >= 25) {
       sevBand = "MODERATE";
     }
 
@@ -374,6 +389,12 @@ export default function SimulationWorkspace() {
       else if (currentQ > 45) riverState = "OVERBANK_FLOODING";
       else if (currentQ > 28) riverState = "BANKFULL_WARNING";
     }
+
+    const isCompoundActive =
+      cs.hazard_typology === "COMPOUND" &&
+      currentFos < 1.1 &&
+      currentQ > 55 &&
+      dailyRain > 65;
 
     activeSimSites[cs.id] = {
       ...cs,
@@ -386,9 +407,9 @@ export default function SimulationWorkspace() {
       peak_discharge_m3s: currentQ,
       inundation_depth_m: Number(stageRise),
       river_stage_state: riverState,
-      flood_probability_percent: cs.hazard_typology === "LANDSLIDE_ONLY" ? 0 : Math.min(95, Math.round(peakFactor * 90)),
-      compound_active: cs.hazard_typology === "COMPOUND" && currentFos < 1.1 && currentQ > 40,
-      compound_pathway: cs.hazard_typology === "COMPOUND" ? "Toe-Erosion Triggered Planar Slip + Damming Risk" : null,
+      flood_probability_percent: cs.hazard_typology === "LANDSLIDE_ONLY" ? 0 : Math.min(95, Math.round(peakFactor * 88)),
+      compound_active: isCompoundActive,
+      compound_pathway: isCompoundActive ? "Toe-Erosion Triggered Planar Slip + Damming Risk" : null,
       roadBlocked: currentFos < 0.95 || (cs.hazard_typology !== "LANDSLIDE_ONLY" && currentQ > 65),
     };
   });

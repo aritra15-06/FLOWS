@@ -845,7 +845,8 @@ export default function SimulationTerrain3DView({
       // Animate 3D Flood Inundation Surge Volumes
       if (floodSurgeMeshesRef.current.length > 0) {
         floodSurgeMeshesRef.current.forEach((fMesh) => {
-          const pulse = 1.0 + Math.sin(clock * 4.0 + fMesh.userData.seed) * 0.15;
+          const seed = fMesh.userData?.seed ?? 0;
+          const pulse = 1.0 + Math.sin(clock * 4.0 + seed) * 0.15;
           fMesh.scale.set(pulse, 1.0, pulse);
           if (fMesh.material) {
             fMesh.material.opacity = 0.55 + Math.sin(clock * 3.5) * 0.15;
@@ -855,9 +856,10 @@ export default function SimulationTerrain3DView({
 
       // Animate station beacon rings
       markersRef.current.forEach((pin, idx) => {
+        const baseY = pin.userData?.baseY ?? 5.0;
         const floatDelta = Math.sin(clock * 3.0 + idx * 1.2) * 0.35;
-        pin.position.y = pin.userData.baseY + floatDelta;
-        if (pin.userData.ringMesh) {
+        pin.position.y = baseY + floatDelta;
+        if (pin.userData?.ringMesh) {
           const ringScale = 1.0 + Math.sin(clock * 4.0 + idx) * 0.25;
           pin.userData.ringMesh.scale.set(ringScale, ringScale, ringScale);
         }
@@ -895,6 +897,13 @@ export default function SimulationTerrain3DView({
         });
         scene.remove(riverGroupRef.current);
       }
+      // Clean object pools on scene destruction to avoid stale references
+      markersMapRef.current = {};
+      cloudsMapRef.current = {};
+      floodMeshesMapRef.current = {};
+      markersRef.current = [];
+      cloudObjectsRef.current = [];
+      floodSurgeMeshesRef.current = [];
       renderer.dispose();
       if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
     };
@@ -911,7 +920,11 @@ export default function SimulationTerrain3DView({
     const maxElev = satelliteData.max_elevation || 5473;
 
     const allSitesMap = { ...sites };
-    customSites.forEach((cs) => { allSitesMap[cs.id] = cs; });
+    customSites.forEach((cs) => {
+      if (!allSitesMap[cs.id]) {
+        allSitesMap[cs.id] = cs;
+      }
+    });
 
     // Localized River Flash Flood Color Updating:
     if (riverGroupRef.current && normalWaterMatRef.current && floodWaterMatRef.current) {
@@ -1014,10 +1027,13 @@ export default function SimulationTerrain3DView({
         scene.add(pinGroup);
         markersMapRef.current[siteId] = pinGroup;
       } else {
-        // Just update existing pin properties!
+        // Ensure pin is attached to current scene
+        if (pinGroup.parent !== scene) scene.add(pinGroup);
         pinGroup.userData.siteData = data;
         pinGroup.position.set(x, siteAltitude, z);
         pinGroup.userData.baseY = siteAltitude;
+        const targetScale = isSelected ? 1.35 : 1.0;
+        pinGroup.scale.set(targetScale, targetScale, targetScale);
         if (pinGroup.userData.headMesh) {
           pinGroup.userData.headMesh.material.color.copy(colorHex);
           pinGroup.userData.headMesh.material.emissive.copy(colorHex);
@@ -1089,6 +1105,8 @@ export default function SimulationTerrain3DView({
           };
           cloudsMapRef.current[siteId] = cloudObj;
         } else {
+          if (cloudObj.cloudGroup.parent !== scene) scene.add(cloudObj.cloudGroup);
+          if (cloudObj.rainPoints && cloudObj.rainPoints.parent !== scene) scene.add(cloudObj.rainPoints);
           cloudObj.cloudGroup.visible = true;
           if (cloudObj.rainPoints) cloudObj.rainPoints.visible = true;
           cloudObj.cloudGroup.position.set(x, siteAltitude + 12.0, z);
@@ -1122,6 +1140,7 @@ export default function SimulationTerrain3DView({
           scene.add(floodMesh);
           floodMeshesMapRef.current[siteId] = floodMesh;
         } else {
+          if (floodMesh.parent !== scene) scene.add(floodMesh);
           floodMesh.visible = true;
           floodMesh.position.set(x, siteAltitude + 0.15, z);
         }
