@@ -625,30 +625,11 @@ export default function SimulationWorkspace() {
         {/* ═══ UNIFIED SIMULATION MISSION CONTROL DECK (TOP CARD ABOVE MAP) ═══ */}
         {isDeckCollapsed ? (
           /* Collapsed Mode: Ultra-slim, fits strictly in just ONE single line */
-          <div
-            className="sim-mission-control-deck collapsed"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "2px 10px",
-              height: 36,
-              minHeight: 36,
-              maxHeight: 36,
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
-              borderRadius: 6,
-              boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)",
-              marginBottom: 4,
-              boxSizing: "border-box",
-              overflow: "hidden",
-            }}
-          >
+          <div className="sim-mission-control-deck collapsed">
             {/* Play/Pause Button */}
             <button
               className={`sim-deck-play-btn ${isPlaying ? "playing" : ""}`}
               onClick={handlePlayPause}
-              style={{ padding: "3px 10px", fontSize: "0.78rem", fontWeight: 700, whiteSpace: "nowrap", height: 26, borderRadius: 4 }}
             >
               {isPlaying ? "⏸️ Pause" : dayOfYear >= TOTAL_SIMULATION_DAYS ? "🔄 Replay" : "▶️ Play"}
             </button>
@@ -661,12 +642,11 @@ export default function SimulationWorkspace() {
               value={dayOfYear}
               onChange={(e) => setDayOfYear(parseInt(e.target.value, 10))}
               className="sim-deck-slider"
-              style={{ flex: 1, minWidth: 90, height: 4, margin: "0 4px" }}
               title="Drag to scrub through 153-day monsoon timeline"
             />
 
             {/* Month Milestones Time Bar */}
-            <div className="sim-deck-month-milestones" style={{ display: "flex", gap: 3, flexWrap: "nowrap" }}>
+            <div className="sim-deck-month-milestones">
               {[
                 { name: "Jun", day: 1, color: "#0284c7" },
                 { name: "Jul", day: 31, color: "#dc2626" },
@@ -678,7 +658,7 @@ export default function SimulationWorkspace() {
                   key={m.name}
                   className="sim-month-jump-chip"
                   onClick={() => setDayOfYear(m.day)}
-                  style={{ color: m.color, padding: "1px 6px", fontSize: "0.7rem", height: 22, lineHeight: "20px", fontWeight: 700 }}
+                  style={{ color: m.color }}
                   title={`Jump timeline to ${m.name}`}
                 >
                   • {m.name}
@@ -687,28 +667,14 @@ export default function SimulationWorkspace() {
             </div>
 
             {/* Date Pill */}
-            <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#475569", whiteSpace: "nowrap" }}>
+            <span className="sim-collapsed-date">
               Day {dayOfYear} ({dateInfo.dateString.slice(0, 6)})
             </span>
 
             {/* Expand Controls Button */}
             <button
+              className="sim-deck-expand-btn"
               onClick={() => setIsDeckCollapsed(false)}
-              style={{
-                padding: "2px 8px",
-                fontSize: "0.72rem",
-                fontWeight: 700,
-                borderRadius: 4,
-                border: "1px solid #cbd5e1",
-                background: "#f1f5f9",
-                color: "#1e293b",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                display: "flex",
-                alignItems: "center",
-                gap: 3,
-                height: 24,
-              }}
               title="Expand full mission control deck"
             >
               🔽 Expand

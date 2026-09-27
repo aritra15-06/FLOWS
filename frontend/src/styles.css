@@ -483,6 +483,112 @@ table { border-collapse: collapse; width: 100%; }
   box-sizing: border-box;
 }
 
+/* ── Collapsed Mode: Strictly single-line horizontal deck ── */
+.sim-mission-control-deck.collapsed {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  max-height: 42px !important;
+  padding: 0 12px !important;
+  gap: 10px !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  z-index: 10 !important;
+}
+
+.sim-mission-control-deck.collapsed .sim-deck-play-btn {
+  height: 28px !important;
+  line-height: 28px !important;
+  padding: 0 12px !important;
+  font-size: 0.74rem !important;
+  min-width: 82px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.sim-mission-control-deck.collapsed .sim-deck-slider {
+  flex: 1 1 auto !important;
+  min-width: 80px !important;
+  height: 6px !important;
+  margin: 0 4px !important;
+  cursor: pointer !important;
+}
+
+.sim-mission-control-deck.collapsed .sim-deck-month-milestones {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  flex-shrink: 0 !important;
+}
+
+.sim-mission-control-deck.collapsed .sim-month-jump-chip {
+  padding: 2px 7px !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  height: 24px !important;
+  line-height: 20px !important;
+  border-radius: 4px !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
+}
+
+.sim-mission-control-deck.collapsed .sim-month-jump-chip:hover {
+  background: #e2e8f0 !important;
+}
+
+.sim-mission-control-deck.collapsed .sim-collapsed-date {
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  color: #334155 !important;
+  background: #f1f5f9 !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+  border: 1px solid #cbd5e1 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+.sim-mission-control-deck.collapsed .sim-deck-expand-btn {
+  height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  border-radius: 5px !important;
+  border: 1px solid #cbd5e1 !important;
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  transition: all 0.15s ease !important;
+}
+
+.sim-mission-control-deck.collapsed .sim-deck-expand-btn:hover {
+  background: #e2e8f0 !important;
+  border-color: #94a3b8 !important;
+}
+
+@media (max-width: 900px) {
+  .sim-mission-control-deck.collapsed .sim-deck-month-milestones {
+    display: none !important;
+  }
+}
+
 .sim-deck-upper-row {
   display: flex;
   align-items: center;
