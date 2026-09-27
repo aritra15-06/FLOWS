@@ -188,40 +188,45 @@ function createFlowingWaterTexture(isFlood = false) {
 
 /**
  * Checks whether an individual river reach is experiencing localized rainfall and flash flood risk.
+ * A reach only turns RED when there is an active flood surge (OVERBANK_FLOODING / CATASTROPHIC_SURGE)
+ * or severe flash flood conditions (flood probability >= 60% under active cloudburst downpour).
+ * Under nominal conditions (Day 1 / dry weather / normal flow), rivers remain natural pristine blue.
  */
 function checkRiverFlooding(rMesh, sites) {
   if (!sites || !rMesh) return false;
   const nearLocId = rMesh.userData?.nearLocationId;
   const pts = rMesh.userData?.points || [];
 
+  const isStationFlooding = (s) => {
+    if (!s) return false;
+    const stage = s.river_stage_state;
+    // Direct overbank surge or dam burst surge
+    if (stage === "OVERBANK_FLOODING" || stage === "CATASTROPHIC_SURGE") {
+      return true;
+    }
+    const floodProb = s.flood_probability_percent ?? 0;
+    const r1 = Number(s.rainfall_1h_mm ?? s.current_params?.rainfall_1h_mm ?? 0);
+    const r24 = Number(s.rainfall_24h_mm ?? s.current_params?.rainfall_24h_mm ?? 0);
+    // Severe flash flood risk under active storm downpour
+    if (floodProb >= 60 && (r1 >= 15.0 || r24 >= 70.0)) {
+      return true;
+    }
+    if (s.compound_active && s.compound_pathway === "LND_DAM_BURST_SURGE" && floodProb >= 50) {
+      return true;
+    }
+    return false;
+  };
+
   // 1. Direct site check if waterway belongs to a monitored station
   if (nearLocId && sites[nearLocId]) {
-    const s = sites[nearLocId];
-    const isOverbank =
-      s.river_stage_state === "OVERBANK_FLOODING" ||
-      s.river_stage_state === "CATASTROPHIC_SURGE";
-    const hasRain = (s.rainfall_1h_mm ?? 0) >= 3.0 || (s.rainfall_24h_mm ?? 0) >= 25.0;
-    const hasFloodRisk =
-      isOverbank ||
-      (s.flood_probability_percent ?? 0) >= 25 ||
-      (s.peak_discharge_m3s ?? 0) >= 32;
-    if (isOverbank || (hasRain && hasFloodRisk)) {
+    if (isStationFlooding(sites[nearLocId])) {
       return true;
     }
   }
 
-  // 2. Spatial proximity check: if river passes within catchment of any station with rain & flood surge
+  // 2. Spatial proximity check: if river passes within catchment of any station experiencing active flood surge
   for (const s of Object.values(sites)) {
-    const isOverbank =
-      s.river_stage_state === "OVERBANK_FLOODING" ||
-      s.river_stage_state === "CATASTROPHIC_SURGE";
-    const hasRain = (s.rainfall_1h_mm ?? 0) >= 3.0 || (s.rainfall_24h_mm ?? 0) >= 25.0;
-    const hasFloodRisk =
-      isOverbank ||
-      (s.flood_probability_percent ?? 0) >= 25 ||
-      (s.peak_discharge_m3s ?? 0) >= 32;
-
-    if (!isOverbank && !(hasRain && hasFloodRisk)) continue;
+    if (!isStationFlooding(s)) continue;
 
     const sLat = Number(s.latitude ?? s.lat ?? s.current_params?.latitude);
     const sLng = Number(s.longitude ?? s.lon ?? s.lng ?? s.current_params?.longitude);
@@ -235,7 +240,7 @@ function checkRiverFlooding(rMesh, sites) {
       const dLat = (pLat - sLat) * 111.32;
       const dLng = (pLng - sLng) * 111.32 * Math.cos((sLat * Math.PI) / 180);
       const distKm = Math.hypot(dLat, dLng);
-      if (distKm <= 8.5) {
+      if (distKm <= 6.0) {
         return true;
       }
     }
@@ -243,6 +248,7 @@ function checkRiverFlooding(rMesh, sites) {
 
   return false;
 }
+
 
 
 export default function SimulationTerrain3DView({
