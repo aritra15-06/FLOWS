@@ -4,99 +4,22 @@ import { useAppContext } from '../state/AppContext';
 import { pilotLocations } from '../data/pilotLocations';
 import defaultSatelliteDem from '../data/sikkim_satellite_dem.json';
 
-// Geographic Bounding Box for Sikkim Teesta Corridor
-const BBOX = {
-  minLat: 27.10,
-  maxLat: 27.75,
-  minLng: 88.35,
-  maxLng: 88.85,
-};
+import {
+  BBOX,
+  PLANE_SIZE,
+  geoTo3D,
+  dist2D,
+  distToPolyline,
+  sampleSatelliteElevation,
+  processLiveWaterways,
+  buildLiveRiverMeshes,
+} from '../utils/river3DBuilder';
 
 // ArcGIS World Imagery Orthophoto REST Export API URL
 const SATELLITE_API_URL =
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=88.35,27.10,88.85,27.75&bboxSR=4326&imageSR=4326&size=1024,1024&f=image';
 
-const PLANE_SIZE = 90; // 3D plane dimensions in Three.js units (~50km E-W, ~72km N-S)
-const SEGS = 72;       // Terrain mesh segment resolution (73x73 = 5,329 vertices)
-
-/**
- * Converts geographic coordinates (lat, lng) to 3D plane coordinates (x, z)
- */
-function geoTo3D(lat, lng) {
-  const normX = (lng - BBOX.minLng) / (BBOX.maxLng - BBOX.minLng);
-  const normZ = (BBOX.maxLat - lat) / (BBOX.maxLat - BBOX.minLat);
-  const x = (normX - 0.5) * PLANE_SIZE;
-  const z = (normZ - 0.5) * PLANE_SIZE;
-  return { x, z, normX, normZ };
-}
-
-/**
- * Calculates Euclidean distance between two 2D points
- */
-function dist2D(x1, z1, x2, z2) {
-  return Math.hypot(x1 - x2, z1 - z2);
-}
-
-/**
- * Calculates shortest distance from point (px, pz) to a 3D polyline
- */
-function distToPolyline(px, pz, polyline3D) {
-  let minDist = Infinity;
-  for (let i = 0; i < polyline3D.length - 1; i++) {
-    const p1 = polyline3D[i];
-    const p2 = polyline3D[i + 1];
-    const dx = p2.x - p1.x;
-    const dz = p2.z - p1.z;
-    const lenSq = dx * dx + dz * dz;
-    let t = lenSq === 0 ? 0 : ((px - p1.x) * dx + (pz - p1.z) * dz) / lenSq;
-    t = Math.max(0, Math.min(1, t));
-    const projX = p1.x + t * dx;
-    const projZ = p1.z + t * dz;
-    const d = dist2D(px, pz, projX, projZ);
-    if (d < minDist) minDist = d;
-  }
-  return minDist;
-}
-
-/**
- * Bilinear interpolation of elevation from N x N satellite elevation matrix
- */
-function sampleSatelliteElevation(normX, normZ, elevations, gridSize, minElev, maxElev) {
-  const clampedX = Math.max(0, Math.min(1, normX));
-  const clampedZ = Math.max(0, Math.min(1, normZ));
-
-  const gx = clampedX * (gridSize - 1);
-  const gz = clampedZ * (gridSize - 1);
-
-  const col0 = Math.floor(gx);
-  const col1 = Math.min(gridSize - 1, col0 + 1);
-  const row0 = Math.floor(gz);
-  const row1 = Math.min(gridSize - 1, row0 + 1);
-
-  const fx = gx - col0;
-  const fz = gz - row0;
-
-  const idx00 = row0 * gridSize + col0;
-  const idx10 = row0 * gridSize + col1;
-  const idx01 = row1 * gridSize + col0;
-  const idx11 = row1 * gridSize + col1;
-
-  const h00 = elevations[idx00] ?? minElev;
-  const h10 = elevations[idx10] ?? minElev;
-  const h01 = elevations[idx01] ?? minElev;
-  const h11 = elevations[idx11] ?? minElev;
-
-  // Bilinear blend
-  const hTop = h00 * (1 - fx) + h10 * fx;
-  const hBot = h01 * (1 - fx) + h11 * fx;
-  const hMeters = hTop * (1 - fz) + hBot * fz;
-
-  // Map meters to 3D world units (base range 2.0 to 28.0)
-  const elevNorm = Math.max(0, Math.min(1, (hMeters - minElev) / Math.max(1, maxElev - minElev)));
-  const yWorld = elevNorm * 26.0 + 2.0;
-
-  return { hMeters, yWorld };
-}
+const SEGS = 72; // Terrain mesh segment resolution (73x73 = 5,329 vertices)
 
 function probColor(p) {
   if (p >= 0.8) return 0xdc2626;
@@ -224,7 +147,7 @@ export default function Terrain3DView({ predictions = {} }) {
   const baseHeightsRef = useRef([]);
   const materialsRef = useRef({});
   const markersRef = useRef([]);
-  const riverMeshRef = useRef(null);
+  const riverGroupRef = useRef(null);
   const waterTextureRef = useRef(null);
 
   const { setSelectedLocation, selectedLocation } = useAppContext();
@@ -232,6 +155,11 @@ export default function Terrain3DView({ predictions = {} }) {
   // View Controls State
   const [textureMode, setTextureMode] = useState('satellite'); // 'satellite' | 'topo' | 'hazard'
   const [vertExaggeration, setVertExaggeration] = useState(1.4);
+  const vertExaggerationRef = useRef(vertExaggeration);
+  useEffect(() => {
+    vertExaggerationRef.current = vertExaggeration;
+  }, [vertExaggeration]);
+
   const [showWireframe, setShowWireframe] = useState(false);
   const [autoRotate, setAutoRotate] = useState(true);
   const autoRotateRef = useRef(autoRotate);
@@ -254,8 +182,9 @@ export default function Terrain3DView({ predictions = {} }) {
     isLive: false,
   });
 
-  // Active satellite DEM data
+  // Active satellite DEM data and live OSM waterways
   const [satelliteData, setSatelliteData] = useState(defaultSatelliteDem);
+  const [liveWaterways, setLiveWaterways] = useState([]);
 
   // 1. Fetch Live Satellite DEM from Backend on Mount
   useEffect(() => {
@@ -275,6 +204,9 @@ export default function Terrain3DView({ predictions = {} }) {
             isLive: !!data.is_live,
           });
           setSatStatus(data.is_live ? 'live' : 'cached');
+          if (data.waterways && data.waterways.length > 0) {
+            setLiveWaterways(data.waterways);
+          }
         }
       } catch (err) {
         console.info('Live satellite DEM API info: Using high-detail cached satellite observation', err);
@@ -284,6 +216,28 @@ export default function Terrain3DView({ predictions = {} }) {
       }
     }
     loadLiveSatelliteData();
+    return () => {
+      isSubscribed = false;
+    };
+  }, []);
+
+  // 1b. Ingest Live OpenStreetMap Drainage Waterways from Backend
+  useEffect(() => {
+    let isSubscribed = true;
+    async function loadWaterways() {
+      try {
+        const res = await fetch('/api/waterways/live');
+        if (res.ok) {
+          const data = await res.json();
+          if (isSubscribed && data && data.waterways && data.waterways.length > 0) {
+            setLiveWaterways(data.waterways);
+          }
+        }
+      } catch (err) {
+        console.warn('Notice: Live waterways loading note:', err);
+      }
+    }
+    loadWaterways();
     return () => {
       isSubscribed = false;
     };
@@ -342,17 +296,23 @@ export default function Terrain3DView({ predictions = {} }) {
     const baseHeights = new Float32Array(count);
     const topoColors = new Float32Array(count * 3);
 
-    // Build 3D coordinates for the real OSM Teesta river trunk
-    const riverRaw = satelliteData.teesta_trunk || defaultSatelliteDem.teesta_trunk || [];
-    const river3D = riverRaw.map((pt) => {
-      const { x, z, normX, normZ } = geoTo3D(pt[0], pt[1]);
-      return { x, z, normX, normZ, lat: pt[0], lng: pt[1] };
-    });
-
     const elevations = satelliteData.elevations || defaultSatelliteDem.elevations;
     const gridSize = satelliteData.grid_size || defaultSatelliteDem.grid_size || 25;
     const minElev = satelliteData.min_elevation || 262;
     const maxElev = satelliteData.max_elevation || 5473;
+
+    // Process all live OSM waterways dynamically
+    const activeWaterways = (liveWaterways && liveWaterways.length > 0)
+      ? liveWaterways
+      : (satelliteData.waterways || defaultSatelliteDem.waterways || []);
+
+    const processedRivers = processLiveWaterways(
+      activeWaterways,
+      elevations,
+      gridSize,
+      minElev,
+      maxElev
+    );
 
     // F. Deform Mesh Vertices Using Real Satellite Elevation Data
     for (let i = 0; i < count; i++) {
@@ -372,14 +332,18 @@ export default function Terrain3DView({ predictions = {} }) {
         maxElev
       );
 
-      // Carve authentic Teesta River V-canyon incision into terrain
+      // Carve authentic river canyon incisions along all live OSM rivers
       let carvedY = yWorld;
-      if (river3D.length > 1) {
-        const distRiver = distToPolyline(vx, vz, river3D);
-        const canyonWidth = 2.4; // 3D units (~1.6 km valley width)
-        if (distRiver < canyonWidth) {
-          const cutFraction = Math.pow(1 - distRiver / canyonWidth, 2);
-          carvedY = Math.max(1.2, carvedY - cutFraction * 3.2);
+      if (processedRivers.length > 0) {
+        for (let rIdx = 0; rIdx < processedRivers.length; rIdx++) {
+          const r = processedRivers[rIdx];
+          const distRiver = distToPolyline(vx, vz, r.points);
+          const rWidth = r.points[0]?.width || 0.6;
+          const canyonWidth = Math.max(1.8, rWidth * 2.6);
+          if (distRiver < canyonWidth) {
+            const cutFraction = Math.pow(1 - distRiver / canyonWidth, 2);
+            carvedY = Math.max(1.1, carvedY - cutFraction * (2.2 + rWidth * 0.9));
+          }
         }
       }
 
@@ -473,115 +437,21 @@ export default function Terrain3DView({ predictions = {} }) {
     scene.add(wireMesh);
 
     // J. Construct 3D Real River Ribbon Following Exact OpenStreetMap Polyline
+    // J. Construct 3D Real River Ribbons Following Exact OpenStreetMap Polylines
     const waterTexture = createFlowingWaterTexture();
     waterTextureRef.current = waterTexture;
 
-    if (river3D.length > 2) {
-      const riverPtsCount = river3D.length;
-      const riverGeo = new THREE.BufferGeometry();
-      const riverVerts = new Float32Array(riverPtsCount * 2 * 3);
-      const riverUVs = new Float32Array(riverPtsCount * 2 * 2);
-      const riverIndices = [];
-
-      let accumDistance = 0;
-
-      for (let i = 0; i < riverPtsCount; i++) {
-        const pt = river3D[i];
-
-        // Sample elevation at river point
-        const { yWorld } = sampleSatelliteElevation(
-          pt.normX,
-          pt.normZ,
-          elevations,
-          gridSize,
-          minElev,
-          maxElev
-        );
-        const ry = (yWorld - 1.6) * vertExaggeration;
-
-        // Compute tangent direction along river curves
-        let tx = 0, tz = 1;
-        if (i < riverPtsCount - 1) {
-          const next = river3D[i + 1];
-          const prev = i > 0 ? river3D[i - 1] : pt;
-          tx = next.x - prev.x;
-          tz = next.z - prev.z;
-          const len = Math.hypot(tx, tz) || 1;
-          tx /= len;
-          tz /= len;
-          if (i > 0) accumDistance += Math.hypot(pt.x - prev.x, pt.z - prev.z);
-        } else {
-          const prev = river3D[i - 1];
-          tx = pt.x - prev.x;
-          tz = pt.z - prev.z;
-          const len = Math.hypot(tx, tz) || 1;
-          tx /= len;
-          tz /= len;
-          accumDistance += Math.hypot(pt.x - prev.x, pt.z - prev.z);
-        }
-
-        // Perpendicular normal in horizontal plane (-tz, tx)
-        const nx = -tz;
-        const nz = tx;
-
-        // River gradually widens downstream towards Rangpo delta (1.4 units to 3.0 units)
-        const widthProgress = i / (riverPtsCount - 1);
-        const riverWidth = 1.4 + widthProgress * 1.6;
-
-        // Left and Right vertices of the river ribbon
-        const lx = pt.x - nx * (riverWidth / 2);
-        const lz = pt.z - nz * (riverWidth / 2);
-        const rx = pt.x + nx * (riverWidth / 2);
-        const rz = pt.z + nz * (riverWidth / 2);
-
-        const vIdx = i * 2;
-        // Left vertex
-        riverVerts[vIdx * 3] = lx;
-        riverVerts[vIdx * 3 + 1] = ry;
-        riverVerts[vIdx * 3 + 2] = lz;
-
-        // Right vertex
-        riverVerts[(vIdx + 1) * 3] = rx;
-        riverVerts[(vIdx + 1) * 3 + 1] = ry;
-        riverVerts[(vIdx + 1) * 3 + 2] = rz;
-
-        // UV mapping (U: 0 to 1 across width, V: along length)
-        const vCoord = accumDistance * 0.15;
-        riverUVs[vIdx * 2] = 0;
-        riverUVs[vIdx * 2 + 1] = vCoord;
-
-        riverUVs[(vIdx + 1) * 2] = 1;
-        riverUVs[(vIdx + 1) * 2 + 1] = vCoord;
-
-        // Triangle indices
-        if (i < riverPtsCount - 1) {
-          const a = vIdx;
-          const b = vIdx + 1;
-          const c = vIdx + 2;
-          const d = vIdx + 3;
-          riverIndices.push(a, b, c);
-          riverIndices.push(b, d, c);
-        }
-      }
-
-      riverGeo.setAttribute('position', new THREE.BufferAttribute(riverVerts, 3));
-      riverGeo.setAttribute('uv', new THREE.BufferAttribute(riverUVs, 2));
-      riverGeo.setIndex(riverIndices);
-      riverGeo.computeVertexNormals();
-
-      const riverMat = new THREE.MeshStandardMaterial({
-        map: waterTexture,
-        roughness: 0.12,
-        metalness: 0.45,
-        transparent: true,
-        opacity: 0.92,
-        side: THREE.DoubleSide,
-      });
-
-      const riverMesh = new THREE.Mesh(riverGeo, riverMat);
-      scene.add(riverMesh);
-      riverMeshRef.current = riverMesh;
-    }
+    // Dynamically build 3D ribbon geometries for all live OSM rivers & tributaries
+    const { riverGroup } = buildLiveRiverMeshes(
+      processedRivers,
+      vertExaggeration,
+      waterTexture,
+      waterTexture,
+      false,
+      THREE
+    );
+    scene.add(riverGroup);
+    riverGroupRef.current = riverGroup;
 
     // K. Fetch Live ArcGIS Satellite Orthophoto Imagery
     const texLoader = new THREE.TextureLoader();
@@ -604,11 +474,15 @@ export default function Terrain3DView({ predictions = {} }) {
       const locId = loc.location_id || loc.id;
       const { x, z, normX, normZ } = geoTo3D(loc.lat, loc.lng);
 
-      // Compute exact distance to Teesta river
+      // Compute exact distance to nearest live OSM river
       let distKm = 0;
-      if (river3D.length > 0) {
-        const dist3D = distToPolyline(x, z, river3D);
-        distKm = dist3D * (60.0 / PLANE_SIZE); // 90 units ~ 60 km
+      if (processedRivers.length > 0) {
+        let minDist = Infinity;
+        for (const r of processedRivers) {
+          const d = distToPolyline(x, z, r.points);
+          if (d < minDist) minDist = d;
+        }
+        distKm = minDist * (60.0 / PLANE_SIZE); // 90 units ~ 60 km
       }
 
       // Sample satellite elevation at station position
@@ -778,29 +652,26 @@ export default function Terrain3DView({ predictions = {} }) {
       camera.position.z = radius * Math.cos(theta) * Math.cos(phi);
       camera.lookAt(0, 8, 0);
 
-      // 3. Flowing River Water Animation: Scroll UV along Teesta river curves
+      // 3. Flowing River Water Animation: Scroll UV along live river network
       const currentFlow = flowSpeedRef.current;
       if (waterTextureRef.current) {
         waterTextureRef.current.offset.y -= 0.0045 * currentFlow;
       }
 
-      // 4. Subtle shimmer vertex ripple on river water
-      if (riverMeshRef.current && riverMeshRef.current.geometry) {
-        const rPos = riverMeshRef.current.geometry.attributes.position;
-        if (rPos && !riverMeshRef.current._baseY) {
-          riverMeshRef.current._baseY = new Float32Array(rPos.count);
-          for (let k = 0; k < rPos.count; k++) {
-            riverMeshRef.current._baseY[k] = rPos.getY(k);
+      // 4. Subtle shimmer vertex ripple on all live OSM river meshes
+      if (riverGroupRef.current) {
+        riverGroupRef.current.children.forEach((rMesh, meshIdx) => {
+          if (!rMesh.geometry) return;
+          const rPos = rMesh.geometry.attributes.position;
+          const bY = rMesh.userData?.baseY;
+          if (rPos && bY) {
+            for (let k = 0; k < rPos.count; k++) {
+              const ripple = Math.sin(clock * 5.0 + k * 0.4 + meshIdx) * 0.05 * currentFlow;
+              rPos.setY(k, bY[k] * vertExaggerationRef.current + ripple);
+            }
+            rPos.needsUpdate = true;
           }
-        }
-        if (riverMeshRef.current._baseY) {
-          const bY = riverMeshRef.current._baseY;
-          for (let k = 0; k < rPos.count; k++) {
-            const ripple = Math.sin(clock * 5.0 + k * 0.4) * 0.05 * currentFlow;
-            rPos.setY(k, bY[k] + ripple);
-          }
-          rPos.needsUpdate = true;
-        }
+        });
       }
 
       // 5. Pulse pin beacons & floating animation
@@ -838,10 +709,17 @@ export default function Terrain3DView({ predictions = {} }) {
       renderer.domElement.removeEventListener('click', onClick);
       renderer.domElement.removeEventListener('mousedown', onMouseDown);
       renderer.domElement.removeEventListener('wheel', onWheel);
+      if (riverGroupRef.current) {
+        riverGroupRef.current.children.forEach((mesh) => {
+          if (mesh.geometry) mesh.geometry.dispose();
+          if (mesh.material) mesh.material.dispose();
+        });
+        scene.remove(riverGroupRef.current);
+      }
       renderer.dispose();
       if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
     };
-  }, [satelliteData]);
+  }, [satelliteData, liveWaterways]);
 
   // Update Material when textureMode changes
   useEffect(() => {
@@ -866,17 +744,18 @@ export default function Terrain3DView({ predictions = {} }) {
     pos.needsUpdate = true;
     geo.computeVertexNormals();
 
-    // Scale river ribbon height to match vertical exaggeration
-    if (riverMeshRef.current && riverMeshRef.current.geometry) {
-      const rPos = riverMeshRef.current.geometry.attributes.position;
-      const bY = riverMeshRef.current._baseY;
-      if (bY) {
-        for (let k = 0; k < rPos.count; k++) {
-          bY[k] = bY[k] * (vertExaggeration / 1.4);
-          rPos.setY(k, bY[k]);
+    // Scale all live OSM river ribbon heights to match vertical exaggeration
+    if (riverGroupRef.current) {
+      riverGroupRef.current.children.forEach((rMesh) => {
+        const rPos = rMesh.geometry?.attributes?.position;
+        const bY = rMesh.userData?.baseY;
+        if (rPos && bY) {
+          for (let k = 0; k < rPos.count; k++) {
+            rPos.setY(k, bY[k] * vertExaggeration);
+          }
+          rPos.needsUpdate = true;
         }
-        rPos.needsUpdate = true;
-      }
+      });
     }
 
     // Adjust station pin heights
@@ -1176,3 +1055,5 @@ export default function Terrain3DView({ predictions = {} }) {
     </div>
   );
 }
+
+export { Terrain3DView };

@@ -138,6 +138,15 @@ def get_live_terrain(force_refresh: bool = False):
     response_data = dict(_SATELLITE_DEM_CACHE)
     response_data["is_live"] = is_live
     response_data["status"] = "success"
+
+    # Attach real live OSM waterways for 3D digital twin rendering
+    try:
+        from backend.routes.waterways import _WATERWAYS_CACHE, _LOADED_RIVERS
+        rivers = _WATERWAYS_CACHE.get("data") or _LOADED_RIVERS or []
+        response_data["waterways"] = rivers
+    except Exception as _w_err:
+        print(f"[TERRAIN] Waterways attach note: {_w_err}")
+
     return response_data
 
 class LocationQuery(BaseModel):
