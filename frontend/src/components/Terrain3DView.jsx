@@ -439,8 +439,6 @@ export default function Terrain3DView({ predictions = {} }) {
       processedRivers,
       vertExaggeration,
       waterTexture,
-      waterTexture,
-      false,
       THREE
     );
     scene.add(riverGroup);

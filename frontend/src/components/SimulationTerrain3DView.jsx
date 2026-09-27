@@ -105,31 +105,25 @@ function createProceduralSatelliteTexture() {
   return texture;
 }
 
-function createFlowingWaterTexture(isFloodSurge = false) {
+function createFlowingWaterTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 1024;
   const ctx = canvas.getContext("2d");
 
+  // Pristine Himalayan glacial turquoise water gradient
   const grad = ctx.createLinearGradient(0, 0, 256, 0);
-  if (isFloodSurge) {
-    grad.addColorStop(0, "#7f1d1d");
-    grad.addColorStop(0.2, "#991b1b");
-    grad.addColorStop(0.5, "#b91c1c");
-    grad.addColorStop(0.8, "#991b1b");
-    grad.addColorStop(1, "#7f1d1d");
-  } else {
-    grad.addColorStop(0, "#0369a1");
-    grad.addColorStop(0.2, "#0284c7");
-    grad.addColorStop(0.5, "#38bdf8");
-    grad.addColorStop(0.8, "#0284c7");
-    grad.addColorStop(1, "#0369a1");
-  }
+  grad.addColorStop(0, "#0369a1");
+  grad.addColorStop(0.2, "#0284c7");
+  grad.addColorStop(0.5, "#38bdf8");
+  grad.addColorStop(0.8, "#0284c7");
+  grad.addColorStop(1, "#0369a1");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 256, 1024);
 
-  ctx.fillStyle = isFloodSurge ? "rgba(254, 226, 226, 0.55)" : "rgba(224, 242, 254, 0.35)";
-  for (let y = 0; y < 1024; y += isFloodSurge ? 12 : 18) {
+  // Flowing current streaks and rapids foam
+  ctx.fillStyle = "rgba(224, 242, 254, 0.35)";
+  for (let y = 0; y < 1024; y += 18) {
     const w = 40 + Math.random() * 85;
     const x = 50 + Math.random() * 110;
     const h = 4 + Math.random() * 8;
@@ -138,9 +132,10 @@ function createFlowingWaterTexture(isFloodSurge = false) {
     ctx.fill();
   }
 
+  // Thin rapid wave highlights
   ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
-  ctx.lineWidth = isFloodSurge ? 2.5 : 1.8;
-  for (let y = 10; y < 1024; y += isFloodSurge ? 18 : 28) {
+  ctx.lineWidth = 1.8;
+  for (let y = 10; y < 1024; y += 28) {
     ctx.beginPath();
     ctx.moveTo(50, y);
     ctx.quadraticCurveTo(128, y + (Math.random() - 0.5) * 20, 206, y);
@@ -184,7 +179,6 @@ export default function SimulationTerrain3DView({
   const floodSurgeMeshesRef = useRef([]);
   const riverGroupRef = useRef(null);
   const normalWaterTexRef = useRef(null);
-  const floodWaterTexRef = useRef(null);
 
   // Synchronized callback refs to eliminate stale closure bugs
   const isPickingLocationRef = useRef(isPickingLocation);
@@ -427,18 +421,14 @@ export default function SimulationTerrain3DView({
     wireMesh.visible = false;
     scene.add(wireMesh);
 
-    const normalWaterTex = createFlowingWaterTexture(false);
-    const floodWaterTex = createFlowingWaterTexture(true);
+    const normalWaterTex = createFlowingWaterTexture();
     normalWaterTexRef.current = normalWaterTex;
-    floodWaterTexRef.current = floodWaterTex;
 
     // Dynamically build 3D ribbon geometries for all live OSM rivers & tributaries
     const { riverGroup } = buildLiveRiverMeshes(
       processedRivers,
       vertExaggeration,
       normalWaterTex,
-      floodWaterTex,
-      hasActiveFloodSurge,
       THREE
     );
     scene.add(riverGroup);
@@ -655,12 +645,8 @@ export default function SimulationTerrain3DView({
       camera.lookAt(0, 8, 0);
 
       const currentFlow = flowSpeedRef.current;
-      const speedMult = hasActiveFloodSurge ? 2.8 : 1.0;
       if (normalWaterTexRef.current) {
-        normalWaterTexRef.current.offset.y -= 0.0045 * currentFlow * speedMult;
-      }
-      if (floodWaterTexRef.current) {
-        floodWaterTexRef.current.offset.y -= 0.0045 * currentFlow * speedMult;
+        normalWaterTexRef.current.offset.y -= 0.0045 * currentFlow;
       }
 
       // Animate flowing ripples across all live OSM river meshes
@@ -785,17 +771,7 @@ export default function SimulationTerrain3DView({
     const minElev = satelliteData.min_elevation || 262;
     const maxElev = satelliteData.max_elevation || 5473;
 
-    if (riverGroupRef.current) {
-      const activeTex = hasActiveFloodSurge
-        ? floodWaterTexRef.current
-        : normalWaterTexRef.current;
-      riverGroupRef.current.children.forEach((rMesh) => {
-        if (rMesh.material) {
-          rMesh.material.map = activeTex;
-          rMesh.material.needsUpdate = true;
-        }
-      });
-    }
+
 
     const allSitesMap = { ...sites };
     customSites.forEach((cs) => { allSitesMap[cs.id] = cs; });
@@ -938,7 +914,7 @@ export default function SimulationTerrain3DView({
         const floodGeo = new THREE.CircleGeometry(4.8, 24);
         floodGeo.rotateX(-Math.PI / 2);
         const floodMat = new THREE.MeshBasicMaterial({
-          color: 0xdc2626,
+          color: 0x0284c7, // Realistic flood surge water blue
           transparent: true,
           opacity: 0.65,
           side: THREE.DoubleSide,
@@ -950,7 +926,7 @@ export default function SimulationTerrain3DView({
         floodSurgeMeshesRef.current.push(floodMesh);
       }
     });
-  }, [sites, customSites, selectedSite, vertExaggeration, hasActiveFloodSurge, satelliteData]);
+  }, [sites, customSites, selectedSite, vertExaggeration, satelliteData]);
 
   // Update Material on mode change
   useEffect(() => {
@@ -1222,8 +1198,9 @@ export default function SimulationTerrain3DView({
             position: "absolute",
             top: 54,
             left: 14,
-            background: "rgba(220, 38, 38, 0.95)",
-            color: "#ffffff",
+            background: "rgba(15, 23, 42, 0.92)",
+            color: "#38bdf8",
+            border: "1px solid rgba(56, 189, 248, 0.4)",
             padding: "5px 12px",
             borderRadius: 6,
             fontSize: "0.75rem",
@@ -1231,12 +1208,12 @@ export default function SimulationTerrain3DView({
             display: "flex",
             alignItems: "center",
             gap: 6,
-            boxShadow: "0 4px 12px rgba(220, 38, 38, 0.35)",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
             zIndex: 90,
           }}
         >
-          <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#ffffff" }} />
-          🌊 3D FLOOD SURGE ACTIVE: Churning muddy torrent and overbank inundation visible
+          <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#38bdf8" }} />
+          🌊 LOCALIZED OVERBANK FLOODING: Elevated stage active at monitored valley stations
         </div>
       )}
 

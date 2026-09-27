@@ -363,28 +363,20 @@ export default function SimulationMapView({
           />
         )}
 
-        {/* ═══ LIVE OSM TEESTA DRAINAGE SYSTEM (HYDRAULIC FLOW & CATCHMENT PROXIMITY GATED) ═══ */}
+        {/* ═══ LIVE OSM TEESTA DRAINAGE SYSTEM (PERMANENT NATURAL RIVER BLUE) ═══ */}
         {waterways.map((river) => {
           const nearSite = sites[river.nearLocationId];
           const distKm = river.minDistanceKm ?? 999;
-          const isImmediateCatchment = distKm <= 5.0;
-          const isDownstreamTeestaCorridor = !!river.isDownstreamTeesta;
+          const isImmediateCatchment = distKm <= 1.8;
 
-          // Hydrological flood evaluation:
-          // A river segment can ONLY surge or flood if:
-          // 1. It is directly within the immediate storm/flood catchment of an active surging site (distKm <= 5.0 km), OR
-          // 2. It is on the downstream Teesta conveyance corridor (carrying flood discharge downstream past Rangpo/Melli)
-          //    AND an upstream or adjacent Teesta station has active flood discharge.
-          // Separate tributaries > 5.0km away in other valleys NEVER surge from an isolated storm elsewhere!
-          const siteSurging = nearSite?.river_stage_state === "OVERBANK_FLOODING" || nearSite?.river_stage_state === "CATASTROPHIC_SURGE";
-          const siteWarning = nearSite?.river_stage_state === "BANKFULL_WARNING";
+          // Localized flood evaluation: only immediately adjacent reaches surge
+          const siteSurging = (nearSite?.river_stage_state === "OVERBANK_FLOODING" || nearSite?.river_stage_state === "CATASTROPHIC_SURGE") && isImmediateCatchment;
+          const siteWarning = nearSite?.river_stage_state === "BANKFULL_WARNING" && isImmediateCatchment;
 
-          const isSurging = (isImmediateCatchment || isDownstreamTeestaCorridor) && siteSurging;
-          const isWarning = (isImmediateCatchment || isDownstreamTeestaCorridor) && siteWarning;
-
-          const riverColor = isSurging ? "#dc2626" : isWarning ? "#ea580c" : "#0284c7";
-          const riverWeight = isSurging ? 5.5 : isWarning ? 4 : 2.5;
-          const riverDash = isSurging ? "8 5" : undefined;
+          // Always retain natural water blue - never turn rivers red across valleys
+          const riverColor = "#0284c7";
+          const riverWeight = siteSurging ? 4.5 : siteWarning ? 3.5 : 2.2;
+          const riverOpacity = siteSurging ? 0.95 : siteWarning ? 0.88 : 0.78;
 
           return (
             <Polyline
@@ -393,21 +385,20 @@ export default function SimulationMapView({
               pathOptions={{
                 color: riverColor,
                 weight: riverWeight,
-                opacity: 0.9,
-                dashArray: riverDash,
+                opacity: riverOpacity,
               }}
             >
               <Popup>
                 <div style={{ fontSize: 13, lineHeight: 1.45 }}>
                   <strong>🌊 {river.name}</strong><br />
-                  <span style={{ color: riverColor, fontWeight: 700 }}>
-                    {isSurging ? "🚨 CATASTROPHIC FLOOD SURGE ACTIVE" : isWarning ? "⚠️ BANKFULL CONVEYANCE WARNING" : "🟢 NOMINAL BASEFLOW DISCHARGE"}
+                  <span style={{ color: siteSurging ? "#dc2626" : siteWarning ? "#ea580c" : "#0284c7", fontWeight: 700 }}>
+                    {siteSurging ? "🚨 LOCALIZED FLASH FLOOD SURGE" : siteWarning ? "⚠️ HIGH CHANNEL STAGE WARNING" : "🟢 NOMINAL BASEFLOW DISCHARGE"}
                   </span>
                   <div style={{ marginTop: 4, fontSize: 11.5, color: "#475569" }}>
-                    Q_peak: <strong>{isSurging ? (nearSite?.peak_discharge_m3s || 48) : 18} m³/s</strong> · Inundation Depth: <strong>+{isSurging ? (nearSite?.inundation_depth_m || 1.2) : 0.2}m</strong>
+                    Q_peak: <strong>{siteSurging ? (nearSite?.peak_discharge_m3s || 48) : 18} m³/s</strong> · Inundation Depth: <strong>+{siteSurging ? (nearSite?.inundation_depth_m || 1.2) : 0.2}m</strong>
                   </div>
                   <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 3 }}>
-                    {isImmediateCatchment ? `Immediate Catchment (${distKm}km from ${nearSite?.name || "Station"})` : isDownstreamTeestaCorridor ? "Downstream Teesta Flood Conveyance Corridor" : `Tributary Basin (${distKm}km from ${nearSite?.name || "Station"})`}
+                    {isImmediateCatchment ? `Direct Reach (${distKm}km from ${nearSite?.name || "Station"})` : `Tributary Basin (${distKm}km from ${nearSite?.name || "Station"})`}
                   </div>
                 </div>
               </Popup>

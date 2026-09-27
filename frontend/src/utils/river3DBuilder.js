@@ -376,16 +376,15 @@ export function buildLiveRiverMeshes(
   processedRivers,
   vertExaggeration,
   normalWaterTex,
-  floodWaterTex,
-  hasFloodSurge,
-  THREE
+  ...rest
 ) {
+  const THREE = rest.find((r) => r && r.Group) || rest[rest.length - 1];
   const riverGroup = new THREE.Group();
   riverGroup.name = "LiveOSMRiverNetwork";
   const riverMeshes = [];
 
   const waterMaterial = new THREE.MeshStandardMaterial({
-    map: hasFloodSurge ? floodWaterTex : normalWaterTex,
+    map: normalWaterTex,
     transparent: true,
     opacity: 0.94,
     roughness: 0.18,
