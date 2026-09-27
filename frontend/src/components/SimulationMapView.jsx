@@ -373,10 +373,11 @@ export default function SimulationMapView({
           const siteSurging = (nearSite?.river_stage_state === "OVERBANK_FLOODING" || nearSite?.river_stage_state === "CATASTROPHIC_SURGE") && isImmediateCatchment;
           const siteWarning = nearSite?.river_stage_state === "BANKFULL_WARNING" && isImmediateCatchment;
 
-          // Always retain natural water blue - never turn rivers red across valleys
-          const riverColor = "#0284c7";
-          const riverWeight = siteSurging ? 4.5 : siteWarning ? 3.5 : 2.2;
-          const riverOpacity = siteSurging ? 0.95 : siteWarning ? 0.88 : 0.78;
+          // Localized flood surge coloring: river reaches in flood surge turn red, bankfull warning turns orange, nominal stays blue
+          const riverColor = siteSurging ? "#dc2626" : siteWarning ? "#ea580c" : "#0284c7";
+          const riverWeight = siteSurging ? 5.2 : siteWarning ? 3.8 : 2.4;
+          const riverOpacity = siteSurging ? 1.0 : siteWarning ? 0.92 : 0.82;
+          const riverDash = siteSurging ? "8 4" : undefined;
 
           return (
             <Polyline
@@ -386,6 +387,7 @@ export default function SimulationMapView({
                 color: riverColor,
                 weight: riverWeight,
                 opacity: riverOpacity,
+                dashArray: riverDash,
               }}
             >
               <Popup>

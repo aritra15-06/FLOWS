@@ -109,41 +109,74 @@ function createProceduralSatelliteTexture() {
   return texture;
 }
 
-function createFlowingWaterTexture() {
+function createFlowingWaterTexture(isFlood = false) {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 1024;
   const ctx = canvas.getContext("2d");
 
-  // Pristine Himalayan glacial turquoise water gradient
-  const grad = ctx.createLinearGradient(0, 0, 256, 0);
-  grad.addColorStop(0, "#0369a1");
-  grad.addColorStop(0.2, "#0284c7");
-  grad.addColorStop(0.5, "#38bdf8");
-  grad.addColorStop(0.8, "#0284c7");
-  grad.addColorStop(1, "#0369a1");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 256, 1024);
+  if (!isFlood) {
+    // Pristine Himalayan glacial turquoise water gradient
+    const grad = ctx.createLinearGradient(0, 0, 256, 0);
+    grad.addColorStop(0, "#0369a1");
+    grad.addColorStop(0.2, "#0284c7");
+    grad.addColorStop(0.5, "#38bdf8");
+    grad.addColorStop(0.8, "#0284c7");
+    grad.addColorStop(1, "#0369a1");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 1024);
 
-  // Flowing current streaks and rapids foam
-  ctx.fillStyle = "rgba(224, 242, 254, 0.35)";
-  for (let y = 0; y < 1024; y += 18) {
-    const w = 40 + Math.random() * 85;
-    const x = 50 + Math.random() * 110;
-    const h = 4 + Math.random() * 8;
-    ctx.beginPath();
-    ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+    // Flowing current streaks and rapids foam
+    ctx.fillStyle = "rgba(224, 242, 254, 0.35)";
+    for (let y = 0; y < 1024; y += 18) {
+      const w = 40 + Math.random() * 85;
+      const x = 50 + Math.random() * 110;
+      const h = 4 + Math.random() * 8;
+      ctx.beginPath();
+      ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-  // Thin rapid wave highlights
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
-  ctx.lineWidth = 1.8;
-  for (let y = 10; y < 1024; y += 28) {
-    ctx.beginPath();
-    ctx.moveTo(50, y);
-    ctx.quadraticCurveTo(128, y + (Math.random() - 0.5) * 20, 206, y);
-    ctx.stroke();
+    // Thin rapid wave highlights
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
+    ctx.lineWidth = 1.8;
+    for (let y = 10; y < 1024; y += 28) {
+      ctx.beginPath();
+      ctx.moveTo(50, y);
+      ctx.quadraticCurveTo(128, y + (Math.random() - 0.5) * 20, 206, y);
+      ctx.stroke();
+    }
+  } else {
+    // Churning turbulent flash flood torrent with mud/debris crimson red
+    const grad = ctx.createLinearGradient(0, 0, 256, 0);
+    grad.addColorStop(0, "#7f1d1d");
+    grad.addColorStop(0.2, "#991b1b");
+    grad.addColorStop(0.5, "#ef4444");
+    grad.addColorStop(0.8, "#dc2626");
+    grad.addColorStop(1, "#7f1d1d");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 1024);
+
+    // Churning muddy torrent foam and surge ripples
+    ctx.fillStyle = "rgba(254, 202, 202, 0.55)";
+    for (let y = 0; y < 1024; y += 14) {
+      const w = 55 + Math.random() * 110;
+      const x = 40 + Math.random() * 130;
+      const h = 5 + Math.random() * 10;
+      ctx.beginPath();
+      ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Violent surging rapids crests
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.lineWidth = 2.5;
+    for (let y = 8; y < 1024; y += 22) {
+      ctx.beginPath();
+      ctx.moveTo(35, y);
+      ctx.quadraticCurveTo(128, y + (Math.random() - 0.5) * 28, 221, y);
+      ctx.stroke();
+    }
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -151,6 +184,64 @@ function createFlowingWaterTexture() {
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(1, 4);
   return texture;
+}
+
+/**
+ * Checks whether an individual river reach is experiencing localized rainfall and flash flood risk.
+ */
+function checkRiverFlooding(rMesh, sites) {
+  if (!sites || !rMesh) return false;
+  const nearLocId = rMesh.userData?.nearLocationId;
+  const pts = rMesh.userData?.points || [];
+
+  // 1. Direct site check if waterway belongs to a monitored station
+  if (nearLocId && sites[nearLocId]) {
+    const s = sites[nearLocId];
+    const isOverbank =
+      s.river_stage_state === "OVERBANK_FLOODING" ||
+      s.river_stage_state === "CATASTROPHIC_SURGE";
+    const hasRain = (s.rainfall_1h_mm ?? 0) >= 3.5 || (s.rainfall_24h_mm ?? 0) >= 28.0;
+    const hasFloodRisk =
+      isOverbank ||
+      (s.flood_probability_percent ?? 0) >= 30 ||
+      (s.peak_discharge_m3s ?? 0) >= 38;
+    if (isOverbank || (hasRain && hasFloodRisk)) {
+      return true;
+    }
+  }
+
+  // 2. Spatial proximity check: if river passes within catchment of any station with rain & flood surge
+  for (const s of Object.values(sites)) {
+    const isOverbank =
+      s.river_stage_state === "OVERBANK_FLOODING" ||
+      s.river_stage_state === "CATASTROPHIC_SURGE";
+    const hasRain = (s.rainfall_1h_mm ?? 0) >= 3.5 || (s.rainfall_24h_mm ?? 0) >= 28.0;
+    const hasFloodRisk =
+      isOverbank ||
+      (s.flood_probability_percent ?? 0) >= 30 ||
+      (s.peak_discharge_m3s ?? 0) >= 38;
+
+    if (!isOverbank && !(hasRain && hasFloodRisk)) continue;
+
+    const sLat = Number(s.latitude ?? s.lat ?? s.current_params?.latitude);
+    const sLng = Number(s.longitude ?? s.lon ?? s.lng ?? s.current_params?.longitude);
+    if (!Number.isFinite(sLat) || !Number.isFinite(sLng)) continue;
+
+    for (let i = 0; i < pts.length; i += 2) {
+      const pt = pts[i];
+      const pLat = pt.lat;
+      const pLng = pt.lng;
+      if (!pLat || !pLng) continue;
+      const dLat = (pLat - sLat) * 111.32;
+      const dLng = (pLng - sLng) * 111.32 * Math.cos((sLat * Math.PI) / 180);
+      const distKm = Math.hypot(dLat, dLng);
+      if (distKm <= 2.8) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 export default function SimulationTerrain3DView({
@@ -183,6 +274,9 @@ export default function SimulationTerrain3DView({
   const floodSurgeMeshesRef = useRef([]);
   const riverGroupRef = useRef(null);
   const normalWaterTexRef = useRef(null);
+  const floodWaterTexRef = useRef(null);
+  const normalWaterMatRef = useRef(null);
+  const floodWaterMatRef = useRef(null);
   const hazardCanvasRef = useRef(null);
   const hazardTextureRef = useRef(null);
 
@@ -425,8 +519,32 @@ export default function SimulationTerrain3DView({
     wireMesh.visible = false;
     scene.add(wireMesh);
 
-    const normalWaterTex = createFlowingWaterTexture();
+    const normalWaterTex = createFlowingWaterTexture(false);
+    const floodWaterTex = createFlowingWaterTexture(true);
     normalWaterTexRef.current = normalWaterTex;
+    floodWaterTexRef.current = floodWaterTex;
+
+    const normalWaterMat = new THREE.MeshStandardMaterial({
+      map: normalWaterTex,
+      transparent: true,
+      opacity: 0.94,
+      roughness: 0.18,
+      metalness: 0.65,
+      side: THREE.DoubleSide,
+      depthWrite: true,
+    });
+    normalWaterMatRef.current = normalWaterMat;
+
+    const floodWaterMat = new THREE.MeshStandardMaterial({
+      map: floodWaterTex,
+      transparent: true,
+      opacity: 0.96,
+      roughness: 0.28,
+      metalness: 0.25,
+      side: THREE.DoubleSide,
+      depthWrite: true,
+    });
+    floodWaterMatRef.current = floodWaterMat;
 
     // Dynamically build 3D ribbon geometries for all live OSM rivers & tributaries
     const { riverGroup } = buildLiveRiverMeshes(
@@ -688,6 +806,9 @@ export default function SimulationTerrain3DView({
       if (normalWaterTexRef.current) {
         normalWaterTexRef.current.offset.y -= 0.0045 * currentFlow;
       }
+      if (floodWaterTexRef.current) {
+        floodWaterTexRef.current.offset.y -= 0.009 * currentFlow; // Rapid torrential flash flood flow
+      }
 
       // Animate flowing ripples across all live OSM river meshes
       if (riverGroupRef.current) {
@@ -815,6 +936,19 @@ export default function SimulationTerrain3DView({
 
     const allSitesMap = { ...sites };
     customSites.forEach((cs) => { allSitesMap[cs.id] = cs; });
+
+    // Localized River Flash Flood Color Updating:
+    // Individual river reaches turn RED when rainfall and flash flood occur in their catchment
+    if (riverGroupRef.current && normalWaterMatRef.current && floodWaterMatRef.current) {
+      riverGroupRef.current.children.forEach((rMesh) => {
+        const isFlooding = checkRiverFlooding(rMesh, allSitesMap);
+        const targetMat = isFlooding ? floodWaterMatRef.current : normalWaterMatRef.current;
+        if (rMesh.material !== targetMat) {
+          rMesh.material = targetMat;
+          rMesh.material.needsUpdate = true;
+        }
+      });
+    }
 
     Object.entries(allSitesMap).forEach(([siteId, data], idx) => {
       const params = data?.current_params || data;

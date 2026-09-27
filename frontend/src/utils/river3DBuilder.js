@@ -483,6 +483,8 @@ export function buildLiveRiverMeshes(
     mesh.userData = {
       riverId: river.id,
       riverName: river.name,
+      nearLocationId: river.nearLocationId,
+      points: pts,
       baseY: new Float32Array(count * 2),
     };
 
