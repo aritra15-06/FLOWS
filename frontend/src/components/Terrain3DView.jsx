@@ -234,7 +234,17 @@ export default function Terrain3DView({ predictions = {} }) {
   const [vertExaggeration, setVertExaggeration] = useState(1.4);
   const [showWireframe, setShowWireframe] = useState(false);
   const [autoRotate, setAutoRotate] = useState(true);
+  const autoRotateRef = useRef(autoRotate);
+  useEffect(() => {
+    autoRotateRef.current = autoRotate;
+  }, [autoRotate]);
+
   const [flowSpeed, setFlowSpeed] = useState(1.0);
+  const flowSpeedRef = useRef(flowSpeed);
+  useEffect(() => {
+    flowSpeedRef.current = flowSpeed;
+  }, [flowSpeed]);
+
   const [satStatus, setSatStatus] = useState('loading'); // 'loading' | 'live' | 'cached'
   const [demSource, setDemSource] = useState('SRTM / Copernicus 90m Satellite DEM');
   const [hoveredSite, setHoveredSite] = useState(null);
@@ -758,7 +768,7 @@ export default function Terrain3DView({ predictions = {} }) {
       clock += 0.016;
 
       // 1. Auto-rotation when not dragging
-      if (autoRotate && !isDragging) {
+      if (autoRotateRef.current && !isDragging) {
         theta += 0.002;
       }
 
@@ -769,8 +779,9 @@ export default function Terrain3DView({ predictions = {} }) {
       camera.lookAt(0, 8, 0);
 
       // 3. Flowing River Water Animation: Scroll UV along Teesta river curves
+      const currentFlow = flowSpeedRef.current;
       if (waterTextureRef.current) {
-        waterTextureRef.current.offset.y -= 0.0045 * flowSpeed;
+        waterTextureRef.current.offset.y -= 0.0045 * currentFlow;
       }
 
       // 4. Subtle shimmer vertex ripple on river water
@@ -785,7 +796,7 @@ export default function Terrain3DView({ predictions = {} }) {
         if (riverMeshRef.current._baseY) {
           const bY = riverMeshRef.current._baseY;
           for (let k = 0; k < rPos.count; k++) {
-            const ripple = Math.sin(clock * 5.0 + k * 0.4) * 0.05 * flowSpeed;
+            const ripple = Math.sin(clock * 5.0 + k * 0.4) * 0.05 * currentFlow;
             rPos.setY(k, bY[k] + ripple);
           }
           rPos.needsUpdate = true;

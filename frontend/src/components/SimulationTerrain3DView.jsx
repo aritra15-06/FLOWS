@@ -272,7 +272,13 @@ export default function SimulationTerrain3DView({
   const [vertExaggeration, setVertExaggeration] = useState(1.4);
   const [showWireframe, setShowWireframe] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
+  const autoRotateRef = useRef(autoRotate);
+  useEffect(() => { autoRotateRef.current = autoRotate; }, [autoRotate]);
+
   const [flowSpeed, setFlowSpeed] = useState(1.0);
+  const flowSpeedRef = useRef(flowSpeed);
+  useEffect(() => { flowSpeedRef.current = flowSpeed; }, [flowSpeed]);
+
   const [satStatus, setSatStatus] = useState("loading");
   const [hoveredInfo, setHoveredInfo] = useState(null);
   const [satelliteData, setSatelliteData] = useState(defaultSatelliteDem);
@@ -406,17 +412,21 @@ export default function SimulationTerrain3DView({
     baseHeightsRef.current = baseHeights;
     geo.setAttribute("color", new THREE.BufferAttribute(topoColors, 3));
     geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    geo.computeBoundingBox();
 
     const fallbackSatTexture = createProceduralSatelliteTexture();
     const satMaterial = new THREE.MeshStandardMaterial({
       map: fallbackSatTexture,
       roughness: 0.82,
       metalness: 0.05,
+      side: THREE.DoubleSide,
     });
     const topoMaterial = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.75,
       metalness: 0.05,
+      side: THREE.DoubleSide,
     });
 
     const hazardCanvas = document.createElement("canvas");
@@ -435,6 +445,7 @@ export default function SimulationTerrain3DView({
       map: hazardTexture,
       roughness: 0.8,
       metalness: 0.1,
+      side: THREE.DoubleSide,
     });
 
     materialsRef.current = {
@@ -648,7 +659,9 @@ export default function SimulationTerrain3DView({
     let mouseDownPos = { x: 0, y: 0 };
     const onClick = (e) => {
       // Check if mouse moved during press (ignore drag events as clicks)
-      if (Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y) > 6) {
+      const dist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+      const maxDist = isPickingLocationRef.current ? 18 : 8;
+      if (dist > maxDist) {
         return;
       }
 
@@ -658,12 +671,29 @@ export default function SimulationTerrain3DView({
       raycaster.setFromCamera(mouse, camera);
 
       // Handle custom site dropping
-      if (isPickingLocationRef.current && onMapClickRef.current && meshRef.current) {
-        const hits = raycaster.intersectObject(meshRef.current);
+      if (isPickingLocationRef.current && onMapClickRef.current) {
+        const candidateMeshes = [meshRef.current, riverMeshRef.current].filter(Boolean);
+        let hits = raycaster.intersectObjects(candidateMeshes, false);
+        let hitPoint = null;
+
         if (hits.length > 0) {
-          const pt = hits[0].point;
-          const { lat, lng } = threeToGeo(pt.x, pt.z);
-          onMapClickRef.current(lat, lng);
+          hitPoint = hits[0].point;
+        } else {
+          // Fallback: intersect with ground horizontal plane at y = 0
+          const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+          const target = new THREE.Vector3();
+          if (raycaster.ray.intersectPlane(groundPlane, target)) {
+            if (Math.abs(target.x) <= PLANE_SIZE / 2 && Math.abs(target.z) <= PLANE_SIZE / 2) {
+              hitPoint = target;
+            }
+          }
+        }
+
+        if (hitPoint) {
+          const { lat, lng } = threeToGeo(hitPoint.x, hitPoint.z);
+          const clampedLat = Math.max(BBOX.minLat + 0.01, Math.min(BBOX.maxLat - 0.01, lat));
+          const clampedLng = Math.max(BBOX.minLng + 0.01, Math.min(BBOX.maxLng - 0.01, lng));
+          onMapClickRef.current(clampedLat, clampedLng);
           if (setIsPickingLocationRef.current) setIsPickingLocationRef.current(false);
           return;
         }
@@ -694,7 +724,7 @@ export default function SimulationTerrain3DView({
       isDragging = true;
       mouseDownPos = { x: e.clientX, y: e.clientY };
       prevMouse = { x: e.clientX, y: e.clientY };
-      renderer.domElement.style.cursor = "grabbing";
+      renderer.domElement.style.cursor = isPickingLocationRef.current ? "crosshair" : "grabbing";
     };
     const onMouseMove = (e) => {
       if (!isDragging) return;
@@ -722,7 +752,7 @@ export default function SimulationTerrain3DView({
       frameRef.current = requestAnimationFrame(animate);
       clock += 0.016;
 
-      if (autoRotate && !isDragging) {
+      if (autoRotateRef.current && !isDragging) {
         theta += 0.0018;
       }
 
@@ -731,12 +761,13 @@ export default function SimulationTerrain3DView({
       camera.position.z = radius * Math.cos(theta) * Math.cos(phi);
       camera.lookAt(0, 8, 0);
 
+      const currentFlow = flowSpeedRef.current;
       const speedMult = hasActiveFloodSurge ? 2.8 : 1.0;
       if (normalWaterTexRef.current) {
-        normalWaterTexRef.current.offset.y -= 0.0045 * flowSpeed * speedMult;
+        normalWaterTexRef.current.offset.y -= 0.0045 * currentFlow * speedMult;
       }
       if (floodWaterTexRef.current) {
-        floodWaterTexRef.current.offset.y -= 0.0045 * flowSpeed * speedMult;
+        floodWaterTexRef.current.offset.y -= 0.0045 * currentFlow * speedMult;
       }
 
       if (riverMeshRef.current && riverMeshRef.current.geometry) {
@@ -750,7 +781,7 @@ export default function SimulationTerrain3DView({
         if (riverMeshRef.current._baseY) {
           const bY = riverMeshRef.current._baseY;
           for (let k = 0; k < rPos.count; k++) {
-            const ripple = Math.sin(clock * 5.5 + k * 0.35) * 0.06 * flowSpeed;
+            const ripple = Math.sin(clock * 5.5 + k * 0.35) * 0.06 * currentFlow;
             rPos.setY(k, bY[k] + ripple);
           }
           rPos.needsUpdate = true;
@@ -1152,36 +1183,6 @@ export default function SimulationTerrain3DView({
             📊 Hazard Threat
           </button>
 
-          {/* Hazard Mode Option Buttons (Compound, Landslide, Flood) */}
-          {setHazardMode && (
-            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "#f8fafc", padding: "2px 4px", borderRadius: 5, border: "1px solid #cbd5e1" }}>
-              <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#64748b", paddingLeft: 2 }}>Option:</span>
-              {[
-                { id: "compound", label: "🔮 Compound" },
-                { id: "landslide", label: "🏔️ Landslide" },
-                { id: "flood", label: "🌊 Flood" },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setHazardMode(m.id)}
-                  style={{
-                    padding: "3px 7px",
-                    fontSize: "0.7rem",
-                    fontWeight: 700,
-                    borderRadius: 4,
-                    border: hazardMode === m.id ? "1px solid #0f172a" : "1px solid transparent",
-                    background: hazardMode === m.id ? "#0f172a" : "transparent",
-                    color: hazardMode === m.id ? "#ffffff" : "#475569",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* 2D Map Switcher Button */}
           {setViewDimension && (
             <button
@@ -1340,32 +1341,34 @@ export default function SimulationTerrain3DView({
           style={{
             position: "absolute",
             top: 54,
-            left: 14,
-            right: 14,
-            background: "rgba(2, 132, 199, 0.95)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#0284c7",
             color: "#ffffff",
-            padding: "6px 14px",
-            borderRadius: 6,
-            fontSize: "0.78rem",
+            padding: "7px 18px",
+            borderRadius: 20,
+            fontSize: "0.82rem",
             fontWeight: 700,
             display: "flex",
-            justifyContent: "space-between",
             alignItems: "center",
-            boxShadow: "0 4px 12px rgba(2, 132, 199, 0.3)",
-            zIndex: 90,
+            gap: 12,
+            boxShadow: "0 4px 16px rgba(2, 132, 199, 0.4)",
+            zIndex: 110,
+            pointerEvents: "auto",
           }}
         >
-          <span>🎯 LOCATION PICKING: Click any mountain slope or river valley on the 3D satellite terrain</span>
+          <span>🎯 LOCATION PICKING: Click anywhere on 3D mountain terrain to drop a monitoring point</span>
           <button
             onClick={() => setIsPickingLocation && setIsPickingLocation(false)}
             style={{
-              background: "rgba(255, 255, 255, 0.2)",
-              border: "none",
+              background: "rgba(0, 0, 0, 0.25)",
+              border: "1px solid rgba(255, 255, 255, 0.4)",
               color: "#ffffff",
-              padding: "2px 8px",
-              borderRadius: 4,
+              padding: "2px 10px",
+              borderRadius: 12,
               cursor: "pointer",
               fontWeight: 700,
+              fontSize: "0.75rem",
             }}
           >
             ✕ Cancel

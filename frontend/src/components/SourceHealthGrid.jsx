@@ -14,7 +14,7 @@ const FALLBACK_SOURCES = [
     coverage: '90m Resolution SRTM Grid',
     used_in: '3D Terrain Model, Relief Exaggeration, Slope Hazard Physics',
     status: 'LIVE',
-    latency: '1,219 ms',
+    latency: '1,489 ms',
     last_update: 'Active in system',
   },
   {
@@ -29,7 +29,7 @@ const FALLBACK_SOURCES = [
     coverage: '90m ESA Copernicus Elevation',
     used_in: '3D Terrain Fallback & Waterway Elevation Matching',
     status: 'LIVE',
-    latency: '1,308 ms',
+    latency: '1,201 ms',
     last_update: 'Active in system',
   },
   {
@@ -44,7 +44,7 @@ const FALLBACK_SOURCES = [
     coverage: 'Sub-meter to 15m Optical Imagery',
     used_in: '3D Terrain Realistic Satellite Surface Draping',
     status: 'LIVE',
-    latency: '293 ms',
+    latency: '791 ms',
     last_update: 'Active in system',
   },
   {
@@ -59,7 +59,7 @@ const FALLBACK_SOURCES = [
     coverage: 'Complete River & Tributary Vector LineStrings',
     used_in: '3D River Mesh, Flow Animations, Flood Surge Channels',
     status: 'LIVE',
-    latency: '801 ms',
+    latency: '1,083 ms',
     last_update: 'Active in system',
   },
   {
@@ -74,17 +74,10 @@ const FALLBACK_SOURCES = [
     coverage: 'Standard OpenStreetMap Web Mercator Tiles',
     used_in: '2D Simulation Map View & Custom Point Picker',
     status: 'LIVE',
-    latency: '774 ms',
+    latency: '711 ms',
     last_update: 'Active in system',
   },
 ];
-
-function statusColor(s) {
-  if (s && s.startsWith('LIVE')) return 'var(--confidence-high)';
-  if (s && s.startsWith('ONLINE')) return 'var(--confidence-high)';
-  if (s === 'DELAYED') return 'var(--confidence-medium)';
-  return 'var(--hazard-critical)';
-}
 
 export default function SourceHealthGrid() {
   const [sources, setSources] = useState(FALLBACK_SOURCES);
@@ -118,14 +111,14 @@ export default function SourceHealthGrid() {
   const liveCount = sources.filter(s => s.status && (s.status.startsWith('LIVE') || s.status.startsWith('ONLINE'))).length;
 
   return (
-    <div className="sources-panel" style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div className="sources-panel" style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', color: '#ffffff' }}>
       {/* Header */}
       <div className="sources-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 700, margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h2 style={{ fontSize: '1.65rem', fontWeight: 800, margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '10px', color: '#ffffff' }}>
             <span>📡</span> Live External API Health Monitor
           </h2>
-          <p className="sources-sub" style={{ margin: 0, color: 'var(--text-secondary, #94a3b8)', fontSize: '0.95rem' }}>
+          <p className="sources-sub" style={{ margin: 0, color: '#e2e8f0', fontSize: '0.96rem' }}>
             Real-time status, round-trip latency, and endpoints for the 5 live external APIs actively queried by FLOWS
           </p>
         </div>
@@ -135,9 +128,9 @@ export default function SourceHealthGrid() {
             <span className="src-sum-item" style={{
               background: '#052e16',
               color: '#4ade80',
-              padding: '6px 14px',
+              padding: '7px 14px',
               borderRadius: '8px',
-              fontWeight: 600,
+              fontWeight: 700,
               fontSize: '0.88rem',
               border: '1px solid #166534'
             }}>
@@ -146,9 +139,9 @@ export default function SourceHealthGrid() {
             <span className="src-sum-item" style={{
               background: '#082f49',
               color: '#38bdf8',
-              padding: '6px 14px',
+              padding: '7px 14px',
               borderRadius: '8px',
-              fontWeight: 600,
+              fontWeight: 700,
               fontSize: '0.88rem',
               border: '1px solid #0369a1'
             }}>
@@ -160,17 +153,18 @@ export default function SourceHealthGrid() {
             onClick={() => fetchLiveSources(true)}
             disabled={isRefreshing}
             style={{
-              background: isRefreshing ? 'rgba(59, 130, 246, 0.4)' : '#2563eb',
+              background: isRefreshing ? '#1d4ed8' : '#2563eb',
               color: '#ffffff',
               border: '1px solid #3b82f6',
               borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '0.88rem',
-              fontWeight: 600,
+              padding: '8px 18px',
+              fontSize: '0.9rem',
+              fontWeight: 700,
               cursor: isRefreshing ? 'wait' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
+              boxShadow: '0 2px 8px rgba(37,99,235,0.4)',
               transition: 'all 0.2s ease',
             }}
           >
@@ -180,42 +174,44 @@ export default function SourceHealthGrid() {
         </div>
       </div>
 
-      {/* Architecture Transparency Banner */}
+      {/* Architecture Transparency Banner (Dark Solid Background with Pure White Text) */}
       <div style={{
-        background: 'rgba(15, 23, 42, 0.75)',
-        border: '1px solid rgba(56, 189, 248, 0.25)',
+        background: '#090d16',
+        border: '1px solid #1e293b',
         borderRadius: '12px',
-        padding: '16px 20px',
+        padding: '18px 22px',
         marginBottom: '24px',
-        fontSize: '0.9rem',
-        lineHeight: '1.5',
-        color: '#cbd5e1',
+        fontSize: '0.92rem',
+        lineHeight: '1.6',
+        color: '#ffffff',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
       }}>
-        <div style={{ fontWeight: 600, color: '#38bdf8', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ fontWeight: 800, color: '#38bdf8', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem' }}>
           <span>ℹ️</span> Zero Secret Keys Required — 100% Open Scientific Data Architecture
         </div>
-        <div>
-          FLOWS connects directly to open scientific endpoints (NASA SRTM, ESA Copernicus, Esri World Imagery, OpenStreetMap Overpass & Tiles).
+        <div style={{ color: '#ffffff' }}>
+          FLOWS connects directly to open scientific endpoints (NASA SRTM, ESA Copernicus, Esri World Imagery, OpenStreetMap Overpass &amp; Tiles).
           All five services are open, unauthenticated public endpoints. Anyone running this application can query live satellite elevation and waterway geometries without paid subscriptions, tokens, or environment keys.
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div className="src-filter-row" style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+      <div className="src-filter-row" style={{ display: 'flex', gap: '8px', marginBottom: '22px', flexWrap: 'wrap' }}>
         {types.map(t => (
           <button
             key={t}
             className={`src-filter-btn ${filter === t ? 'active' : ''}`}
             onClick={() => setFilter(t)}
             style={{
-              padding: '6px 14px',
+              padding: '7px 16px',
               borderRadius: '6px',
-              fontSize: '0.85rem',
-              border: filter === t ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
-              background: filter === t ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.03)',
-              color: filter === t ? '#38bdf8' : '#94a3b8',
+              fontSize: '0.86rem',
+              border: filter === t ? '1px solid #38bdf8' : '1px solid #1e293b',
+              background: filter === t ? '#1e3a8a' : '#0b0f19',
+              color: '#ffffff',
               cursor: 'pointer',
-              fontWeight: filter === t ? 600 : 400,
+              fontWeight: 700,
+              transition: 'all 0.15s ease',
             }}
           >
             {t}
@@ -223,143 +219,153 @@ export default function SourceHealthGrid() {
         ))}
       </div>
 
-      {/* Grid of 5 Real APIs */}
-      <div className="src-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '20px' }}>
+      {/* Grid of 5 Real APIs (Solid Dark Cards with High-Contrast Pure White Text) */}
+      <div className="src-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '22px' }}>
         {filtered.map(s => (
           <div
             key={s.id}
             className="src-card"
             style={{
-              background: 'rgba(30, 41, 59, 0.65)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: '#090d16',
+              border: '1px solid #1e293b',
               borderRadius: '12px',
-              padding: '20px',
+              padding: '22px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px',
+              gap: '14px',
               position: 'relative',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
+              boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
+              color: '#ffffff',
             }}
           >
             {/* Header: Name + Status */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
               <div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', marginBottom: '2px' }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', marginBottom: '4px' }}>
                   {s.name}
                 </div>
-                <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                <div style={{ fontSize: '0.85rem', color: '#ffffff', opacity: 0.9, fontWeight: 500 }}>
                   {s.provider}
                 </div>
               </div>
               <span
                 style={{
                   background: '#052e16',
-                  color: statusColor(s.status),
-                  border: `1px solid ${statusColor(s.status)}`,
-                  padding: '3px 10px',
+                  color: '#4ade80',
+                  border: '1px solid #22c55e',
+                  padding: '4px 12px',
                   borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
                   whiteSpace: 'nowrap',
                   letterSpacing: '0.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
                 }}
               >
-                ● {s.status}
+                ● {s.status || 'LIVE'}
               </span>
             </div>
 
-            {/* Type & Auth Tags */}
+            {/* Type & Auth Tags (Solid High-Contrast Badges with White Text) */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <span style={{
-                background: 'rgba(56, 189, 248, 0.12)',
-                color: '#38bdf8',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
+                background: '#0c4a6e',
+                color: '#ffffff',
+                border: '1px solid #0284c7',
+                padding: '3px 10px',
+                borderRadius: '5px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
               }}>
                 {s.type}
               </span>
               <span style={{
-                background: 'rgba(34, 197, 94, 0.12)',
-                color: '#4ade80',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                fontSize: '0.75rem',
-                fontWeight: 500,
+                background: '#064e3b',
+                color: '#ffffff',
+                border: '1px solid #059669',
+                padding: '3px 10px',
+                borderRadius: '5px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
               }}>
                 {s.auth}
               </span>
             </div>
 
-            {/* Purpose */}
-            <div style={{ fontSize: '0.88rem', color: '#cbd5e1', lineHeight: '1.45' }}>
+            {/* Purpose (Pure White Text) */}
+            <div style={{ fontSize: '0.92rem', color: '#ffffff', lineHeight: '1.55', fontWeight: 400 }}>
               {s.purpose}
             </div>
 
-            {/* Usage in FLOWS */}
+            {/* Usage in FLOWS (Dark Inset Container with White Text) */}
             <div style={{
-              background: 'rgba(15, 23, 42, 0.5)',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              color: '#94a3b8',
-              border: '1px solid rgba(255,255,255,0.05)'
+              background: '#020617',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              fontSize: '0.84rem',
+              color: '#ffffff',
+              border: '1px solid #1e293b'
             }}>
-              <span style={{ color: '#e2e8f0', fontWeight: 600 }}>FLOWS Component: </span>
-              {s.used_in}
+              <span style={{ color: '#38bdf8', fontWeight: 700 }}>FLOWS Component: </span>
+              <span style={{ color: '#ffffff' }}>{s.used_in}</span>
             </div>
 
-            {/* Live Endpoint */}
+            {/* Live Endpoint (Dark Inset Box with Pure White Monospace Text) */}
             <div style={{
               fontFamily: 'monospace',
-              fontSize: '0.76rem',
-              background: 'rgba(0, 0, 0, 0.35)',
-              padding: '6px 10px',
-              borderRadius: '6px',
-              color: '#38bdf8',
+              fontSize: '0.78rem',
+              background: '#020617',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              color: '#ffffff',
               wordBreak: 'break-all',
-              border: '1px solid rgba(56, 189, 248, 0.15)'
+              border: '1px solid #1e293b'
             }}>
               🌐 {s.endpoint}
             </div>
 
-            {/* Telemetry Row */}
+            {/* Telemetry Row (Pure White Text) */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               marginTop: 'auto',
-              paddingTop: '10px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              fontSize: '0.82rem',
-              color: '#94a3b8'
+              paddingTop: '12px',
+              borderTop: '1px solid #1e293b',
+              fontSize: '0.86rem',
+              color: '#ffffff'
             }}>
-              <span>⏱ Live Latency: <strong style={{ color: '#f8fafc' }}>{s.latency}</strong></span>
-              <span>🕐 {s.last_update || `Checked ${lastCheckTime}`}</span>
+              <span style={{ color: '#ffffff' }}>
+                ⏱ Live Latency: <strong style={{ color: '#ffffff', fontSize: '0.92rem' }}>{s.latency}</strong>
+              </span>
+              <span style={{ color: '#ffffff', opacity: 0.9 }}>
+                🕐 {s.last_update || `Checked ${lastCheckTime}`}
+              </span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Attribution footer */}
+      {/* Attribution footer (Pure White & Light Slate) */}
       <div style={{
-        marginTop: '32px',
-        padding: '16px 20px',
-        background: 'rgba(15, 23, 42, 0.5)',
-        borderRadius: '8px',
-        border: '1px solid rgba(255,255,255,0.05)',
-        fontSize: '0.82rem',
-        color: '#64748b',
+        marginTop: '34px',
+        padding: '18px 22px',
+        background: '#090d16',
+        borderRadius: '10px',
+        border: '1px solid #1e293b',
+        fontSize: '0.85rem',
+        color: '#ffffff',
         display: 'flex',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '8px'
+        gap: '10px'
       }}>
-        <div>
-          <strong>External Services:</strong> Open-Elevation (SRTM 90m), Open-Meteo (Copernicus DEM), Esri ArcGIS World Imagery, OpenStreetMap Overpass QL API, OSM Carto.
+        <div style={{ color: '#ffffff' }}>
+          <strong style={{ color: '#ffffff' }}>External Services:</strong> Open-Elevation (SRTM 90m), Open-Meteo (Copernicus DEM), Esri ArcGIS World Imagery, OpenStreetMap Overpass QL API, OSM Carto.
         </div>
-        <div>
+        <div style={{ color: '#ffffff' }}>
           Last Checked: {lastCheckTime}
         </div>
       </div>
