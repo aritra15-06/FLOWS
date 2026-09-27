@@ -306,12 +306,13 @@ function analyzeCustomCoordinates(lat, lng) {
 }
 
 export default function SimulationWorkspace() {
-  const [viewDimension, setViewDimension] = useState("3d"); // "3d" | "2d"
+  const [viewDimension, setViewDimension] = useState("2d"); // Default to 2D Leaflet interactive map
   const [hazardMode, setHazardMode] = useState("compound"); // "compound" | "flood" | "landslide"
   const [showPeople, setShowPeople] = useState(true);
   const [showInfrastructure, setShowInfrastructure] = useState(true);
   const [regionFilter, setRegionFilter] = useState("all"); // "all" | "landslide_only" | "flood_only" | "compound"
-  const [selectedSite, setSelectedSite] = useState("LOC01");
+  const [selectedSite, setSelectedSite] = useState(null); // No popup open on startup
+  const [isDeckCollapsed, setIsDeckCollapsed] = useState(false); // Collapsible mission control deck
   const [expandedRegions, setExpandedRegions] = useState({});
   const [dismissedAlertDay, setDismissedAlertDay] = useState(null);
 
@@ -615,96 +616,32 @@ export default function SimulationWorkspace() {
       {/* Main Simulation Map View (Left / Center) */}
       <div className="sim-map-container">
         {/* ═══ UNIFIED SIMULATION MISSION CONTROL DECK (TOP CARD ABOVE MAP) ═══ */}
-        <div className="sim-mission-control-deck">
-          {/* Upper Deck Row: Timeline Status, Player, and Controls */}
-          <div className="sim-deck-upper-row">
-            {/* Left: Date & Season Identity */}
-            <div className="sim-date-identity-block">
-              <div className="sim-date-heading">
-                <span style={{ fontSize: "1.05rem" }}>📅</span>
-                <strong className="sim-date-text">{dateInfo.dateString}</strong>
-                <span className="sim-day-pill">Day {dayOfYear} / {TOTAL_SIMULATION_DAYS}</span>
-                <span className="sim-season-badge" title={`${seasonInfo.name}: ${seasonInfo.desc}`}>
-                  {seasonInfo.icon} {seasonInfo.name}
-                </span>
-              </div>
-            </div>
+        {isDeckCollapsed ? (
+          /* Collapsed Mode: Only play/pause button, time bar of months, and expand button */
+          <div
+            className="sim-mission-control-deck collapsed"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "8px 14px",
+              background: "#ffffff",
+              border: "1px solid #cbd5e1",
+              borderRadius: 8,
+              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
+              marginBottom: 8,
+            }}
+          >
+            {/* Play/Pause Button */}
+            <button
+              className={`sim-deck-play-btn ${isPlaying ? "playing" : ""}`}
+              onClick={handlePlayPause}
+              style={{ padding: "5px 12px", fontSize: "0.82rem", whiteSpace: "nowrap" }}
+            >
+              {isPlaying ? "⏸️ Pause" : dayOfYear >= TOTAL_SIMULATION_DAYS ? "🔄 Replay" : "▶️ Play"}
+            </button>
 
-            {/* Center: Playback Controls */}
-            <div className="sim-deck-player-controls">
-              <button
-                className={`sim-deck-play-btn ${isPlaying ? "playing" : ""}`}
-                onClick={handlePlayPause}
-              >
-                {isPlaying ? "⏸️ Pause" : dayOfYear >= TOTAL_SIMULATION_DAYS ? "🔄 Replay" : "▶️ Play"}
-              </button>
-              <button className="sim-deck-reset-btn" onClick={handleReplay} title="Reset to June 1">
-                🔄 Reset
-              </button>
-              <div className="sim-deck-speed-group">
-                {[0.5, 1, 2, 3].map((spd) => (
-                  <button
-                    key={spd}
-                    className={`sim-deck-speed-chip ${playbackSpeed === spd ? "active" : ""}`}
-                    onClick={() => setPlaybackSpeed(spd)}
-                  >
-                    {spd}x
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: Map Layer Toggles & Live Threat Status */}
-            <div className="sim-deck-status-block">
-              <div className="sim-deck-toggles">
-                <button
-                  className={`sim-deck-pill-btn ${showPeople ? "active" : ""}`}
-                  onClick={() => setShowPeople(!showPeople)}
-                  title="Toggle citizen observer pins on map"
-                >
-                  👥 Citizens: {showPeople ? "ON" : "OFF"}
-                </button>
-                <button
-                  className={`sim-deck-pill-btn ${showInfrastructure ? "active" : ""}`}
-                  onClick={() => setShowInfrastructure(!showInfrastructure)}
-                  title="Toggle government highways & settlements"
-                >
-                  🛣️ Highways: {showInfrastructure ? "ON" : "OFF"}
-                </button>
-                <button
-                  className={`sim-deck-pill-btn ${viewDimension === "3d" ? "active" : ""}`}
-                  onClick={() => setViewDimension(viewDimension === "3d" ? "2d" : "3d")}
-                  style={{
-                    fontWeight: 700,
-                    background: viewDimension === "3d" ? "#0284c7" : "#ffffff",
-                    color: viewDimension === "3d" ? "#ffffff" : "#0284c7",
-                    borderColor: "#0284c7",
-                  }}
-                  title="Toggle between 3D Satellite Terrain and 2D Leaflet Map"
-                >
-                  {viewDimension === "3d" ? "🏔️ 3D Terrain Model (Active)" : "🗺️ 2D Map View"}
-                </button>
-              </div>
-
-              {activeRedCount > 0 ? (
-                <div className="sim-deck-hazard-badge danger">
-                  <span className="pulse-danger-dot" />
-                  <span>🚨 ACTIVE CRISIS ({activeRedCount})</span>
-                </div>
-              ) : activeAmberCount > 0 ? (
-                <div className="sim-deck-hazard-badge warning">
-                  <span>⚠️ ELEVATED PRESSURE</span>
-                </div>
-              ) : (
-                <div className="sim-deck-hazard-badge normal">
-                  <span>🟢 NOMINAL STABILITY</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Lower Deck Row: Scrubber Slider with Clickable Month Milestones */}
-          <div className="sim-deck-scrubber-row">
+            {/* Time Bar Scrubber Slider */}
             <input
               type="range"
               min={1}
@@ -712,29 +649,202 @@ export default function SimulationWorkspace() {
               value={dayOfYear}
               onChange={(e) => setDayOfYear(parseInt(e.target.value, 10))}
               className="sim-deck-slider"
+              style={{ flex: 1, minWidth: 140 }}
               title="Drag to scrub through 153-day monsoon timeline"
             />
-            <div className="sim-deck-month-milestones">
+
+            {/* Month Milestones Time Bar */}
+            <div className="sim-deck-month-milestones" style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
               {[
-                { name: "Jun (Onset 🌧️)", day: 1, color: "#0284c7" },
-                { name: "Jul (Cloudburst ⚡)", day: 31, color: "#dc2626" },
-                { name: "Aug (Peak Deluge ⚡)", day: 62, color: "#dc2626" },
-                { name: "Sep (Late Runoff ⛈️)", day: 93, color: "#ea580c" },
-                { name: "Oct (Seepage 🍂)", day: 123, color: "#16a34a" },
+                { name: "Jun", day: 1, color: "#0284c7" },
+                { name: "Jul", day: 31, color: "#dc2626" },
+                { name: "Aug", day: 62, color: "#dc2626" },
+                { name: "Sep", day: 93, color: "#ea580c" },
+                { name: "Oct", day: 123, color: "#16a34a" },
               ].map((m) => (
                 <button
                   key={m.name}
                   className="sim-month-jump-chip"
                   onClick={() => setDayOfYear(m.day)}
-                  style={{ color: m.color }}
+                  style={{ color: m.color, padding: "2px 8px", fontSize: "0.74rem" }}
                   title={`Jump timeline to ${m.name}`}
                 >
                   • {m.name}
                 </button>
               ))}
             </div>
+
+            {/* Date Pill */}
+            <span style={{ fontSize: "0.76rem", fontWeight: 700, color: "#334155", whiteSpace: "nowrap" }}>
+              Day {dayOfYear} ({dateInfo.dateString.slice(0, 6)})
+            </span>
+
+            {/* Expand Controls Button */}
+            <button
+              onClick={() => setIsDeckCollapsed(false)}
+              style={{
+                padding: "4px 10px",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                borderRadius: 6,
+                border: "1px solid #cbd5e1",
+                background: "#f1f5f9",
+                color: "#1e293b",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+              title="Expand full mission control deck"
+            >
+              🔽 Expand Controls
+            </button>
           </div>
-        </div>
+        ) : (
+          /* Expanded Full Mode */
+          <div className="sim-mission-control-deck">
+            {/* Upper Deck Row: Timeline Status, Player, Controls, and Collapse Button */}
+            <div className="sim-deck-upper-row">
+              {/* Left: Date & Season Identity */}
+              <div className="sim-date-identity-block">
+                <div className="sim-date-heading">
+                  <span style={{ fontSize: "1.05rem" }}>📅</span>
+                  <strong className="sim-date-text">{dateInfo.dateString}</strong>
+                  <span className="sim-day-pill">Day {dayOfYear} / {TOTAL_SIMULATION_DAYS}</span>
+                  <span className="sim-season-badge" title={`${seasonInfo.name}: ${seasonInfo.desc}`}>
+                    {seasonInfo.icon} {seasonInfo.name}
+                  </span>
+                </div>
+              </div>
+
+              {/* Center: Playback Controls */}
+              <div className="sim-deck-player-controls">
+                <button
+                  className={`sim-deck-play-btn ${isPlaying ? "playing" : ""}`}
+                  onClick={handlePlayPause}
+                >
+                  {isPlaying ? "⏸️ Pause" : dayOfYear >= TOTAL_SIMULATION_DAYS ? "🔄 Replay" : "▶️ Play"}
+                </button>
+                <button className="sim-deck-reset-btn" onClick={handleReplay} title="Reset to June 1">
+                  🔄 Reset
+                </button>
+                <div className="sim-deck-speed-group">
+                  {[0.5, 1, 2, 3].map((spd) => (
+                    <button
+                      key={spd}
+                      className={`sim-deck-speed-chip ${playbackSpeed === spd ? "active" : ""}`}
+                      onClick={() => setPlaybackSpeed(spd)}
+                    >
+                      {spd}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right: Map Layer Toggles & Live Threat Status */}
+              <div className="sim-deck-status-block">
+                <div className="sim-deck-toggles">
+                  <button
+                    className={`sim-deck-pill-btn ${showPeople ? "active" : ""}`}
+                    onClick={() => setShowPeople(!showPeople)}
+                    title="Toggle citizen observer pins on map"
+                  >
+                    👥 Citizens: {showPeople ? "ON" : "OFF"}
+                  </button>
+                  <button
+                    className={`sim-deck-pill-btn ${showInfrastructure ? "active" : ""}`}
+                    onClick={() => setShowInfrastructure(!showInfrastructure)}
+                    title="Toggle government highways & settlements"
+                  >
+                    🛣️ Highways: {showInfrastructure ? "ON" : "OFF"}
+                  </button>
+                  <button
+                    className={`sim-deck-pill-btn ${viewDimension === "3d" ? "active" : ""}`}
+                    onClick={() => setViewDimension(viewDimension === "3d" ? "2d" : "3d")}
+                    style={{
+                      fontWeight: 700,
+                      background: viewDimension === "3d" ? "#0284c7" : "#ffffff",
+                      color: viewDimension === "3d" ? "#ffffff" : "#0284c7",
+                      borderColor: "#0284c7",
+                    }}
+                    title="Toggle between 3D Satellite Terrain and 2D Leaflet Map"
+                  >
+                    {viewDimension === "3d" ? "🏔️ 3D Terrain Model (Active)" : "🗺️ 2D Map View"}
+                  </button>
+                </div>
+
+                {activeRedCount > 0 ? (
+                  <div className="sim-deck-hazard-badge danger">
+                    <span className="pulse-danger-dot" />
+                    <span>🚨 ACTIVE CRISIS ({activeRedCount})</span>
+                  </div>
+                ) : activeAmberCount > 0 ? (
+                  <div className="sim-deck-hazard-badge warning">
+                    <span>⚠️ ELEVATED PRESSURE</span>
+                  </div>
+                ) : (
+                  <div className="sim-deck-hazard-badge normal">
+                    <span>🟢 NOMINAL STABILITY</span>
+                  </div>
+                )}
+
+                {/* Collapse Button */}
+                <button
+                  onClick={() => setIsDeckCollapsed(true)}
+                  style={{
+                    padding: "4px 9px",
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    borderRadius: 6,
+                    border: "1px solid #cbd5e1",
+                    background: "#f8fafc",
+                    color: "#475569",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                  title="Collapse controls into a compact time bar"
+                >
+                  ▲ Collapse
+                </button>
+              </div>
+            </div>
+
+            {/* Lower Deck Row: Scrubber Slider with Clickable Month Milestones */}
+            <div className="sim-deck-scrubber-row">
+              <input
+                type="range"
+                min={1}
+                max={TOTAL_SIMULATION_DAYS}
+                value={dayOfYear}
+                onChange={(e) => setDayOfYear(parseInt(e.target.value, 10))}
+                className="sim-deck-slider"
+                title="Drag to scrub through 153-day monsoon timeline"
+              />
+              <div className="sim-deck-month-milestones">
+                {[
+                  { name: "Jun (Onset 🌧️)", day: 1, color: "#0284c7" },
+                  { name: "Jul (Cloudburst ⚡)", day: 31, color: "#dc2626" },
+                  { name: "Aug (Peak Deluge ⚡)", day: 62, color: "#dc2626" },
+                  { name: "Sep (Late Runoff ⛈️)", day: 93, color: "#ea580c" },
+                  { name: "Oct (Seepage 🍂)", day: 123, color: "#16a34a" },
+                ].map((m) => (
+                  <button
+                    key={m.name}
+                    className="sim-month-jump-chip"
+                    onClick={() => setDayOfYear(m.day)}
+                    style={{ color: m.color }}
+                    title={`Jump timeline to ${m.name}`}
+                  >
+                    • {m.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Dedicated Map Body */}
         <div className="sim-map-view-body">

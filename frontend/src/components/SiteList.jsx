@@ -42,7 +42,15 @@ export default function SiteList() {
           const pred = lastPrediction[locId];
           const lsP = pred?.prediction?.hazards?.landslide?.probability || 0;
           const flP = pred?.prediction?.hazards?.flood?.probability || 0;
-          const action = pred?.action?.action || 'ADVISORY';
+          const maxP = Math.max(lsP, flP);
+          const rawAction = pred?.action?.action;
+          const action = (rawAction === 'EMERGENCY' || maxP >= 0.8)
+            ? 'EMERGENCY'
+            : (rawAction === 'WARNING' || maxP >= 0.6)
+            ? 'WARNING'
+            : (rawAction === 'WATCH' || maxP >= 0.3)
+            ? 'WATCH'
+            : 'SAFE';
           const fosState = pred?.prediction?.physics_output?.stability_state || 'STABLE';
           return (
             <div
@@ -51,9 +59,14 @@ export default function SiteList() {
               onClick={() => setSelectedLocation(loc)}
             >
               <div className="site-card-top">
-                <div className="site-dot" style={{ background: probColor(Math.max(lsP, flP)) }} />
+                <div className="site-dot" style={{ background: probColor(maxP) }} />
                 <span className="site-name">{loc.name}</span>
-                <span className="site-action" style={{ color: action === 'EMERGENCY' ? 'var(--hazard-critical)' : action === 'WARNING' ? 'var(--hazard-warning)' : action === 'WATCH' ? 'var(--hazard-watch)' : 'var(--hazard-safe)', fontSize: '0.65rem' }}>
+                <span className="site-action" style={{
+                  color: action === 'EMERGENCY' ? 'var(--hazard-critical)' : action === 'WARNING' ? 'var(--hazard-warning)' : action === 'WATCH' ? 'var(--hazard-watch)' : 'var(--hazard-safe)',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.3px',
+                }}>
                   {action}
                 </span>
               </div>
@@ -89,3 +102,5 @@ export default function SiteList() {
     </div>
   );
 }
+
+export { SiteList };
