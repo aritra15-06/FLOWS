@@ -200,11 +200,11 @@ function checkRiverFlooding(rMesh, sites) {
     const isOverbank =
       s.river_stage_state === "OVERBANK_FLOODING" ||
       s.river_stage_state === "CATASTROPHIC_SURGE";
-    const hasRain = (s.rainfall_1h_mm ?? 0) >= 3.5 || (s.rainfall_24h_mm ?? 0) >= 28.0;
+    const hasRain = (s.rainfall_1h_mm ?? 0) >= 3.0 || (s.rainfall_24h_mm ?? 0) >= 25.0;
     const hasFloodRisk =
       isOverbank ||
-      (s.flood_probability_percent ?? 0) >= 30 ||
-      (s.peak_discharge_m3s ?? 0) >= 38;
+      (s.flood_probability_percent ?? 0) >= 25 ||
+      (s.peak_discharge_m3s ?? 0) >= 32;
     if (isOverbank || (hasRain && hasFloodRisk)) {
       return true;
     }
@@ -215,11 +215,11 @@ function checkRiverFlooding(rMesh, sites) {
     const isOverbank =
       s.river_stage_state === "OVERBANK_FLOODING" ||
       s.river_stage_state === "CATASTROPHIC_SURGE";
-    const hasRain = (s.rainfall_1h_mm ?? 0) >= 3.5 || (s.rainfall_24h_mm ?? 0) >= 28.0;
+    const hasRain = (s.rainfall_1h_mm ?? 0) >= 3.0 || (s.rainfall_24h_mm ?? 0) >= 25.0;
     const hasFloodRisk =
       isOverbank ||
-      (s.flood_probability_percent ?? 0) >= 30 ||
-      (s.peak_discharge_m3s ?? 0) >= 38;
+      (s.flood_probability_percent ?? 0) >= 25 ||
+      (s.peak_discharge_m3s ?? 0) >= 32;
 
     if (!isOverbank && !(hasRain && hasFloodRisk)) continue;
 
@@ -235,7 +235,7 @@ function checkRiverFlooding(rMesh, sites) {
       const dLat = (pLat - sLat) * 111.32;
       const dLng = (pLng - sLng) * 111.32 * Math.cos((sLat * Math.PI) / 180);
       const distKm = Math.hypot(dLat, dLng);
-      if (distKm <= 2.8) {
+      if (distKm <= 8.5) {
         return true;
       }
     }
@@ -243,6 +243,7 @@ function checkRiverFlooding(rMesh, sites) {
 
   return false;
 }
+
 
 export default function SimulationTerrain3DView({
   sites = {},
@@ -294,7 +295,8 @@ export default function SimulationTerrain3DView({
   useEffect(() => { setIsPickingLocationRef.current = setIsPickingLocation; }, [setIsPickingLocation]);
 
   // View state
-  const [textureMode, setTextureMode] = useState("satellite"); // "satellite" | "topo" | "hazard"
+  const [textureMode, setTextureMode] = useState("hazard"); // "hazard" (default continuous risk raster) | "satellite" | "topo"
+  const inspectedCoordsRef = useRef(null);
   const [vertExaggeration, setVertExaggeration] = useState(1.4);
   const vertExaggerationRef = useRef(vertExaggeration);
   useEffect(() => { vertExaggerationRef.current = vertExaggeration; }, [vertExaggeration]);
@@ -489,15 +491,23 @@ export default function SimulationTerrain3DView({
     hazardCanvas.width = 128;
     hazardCanvas.height = 128;
     hazardCanvasRef.current = hazardCanvas;
-    renderDynamicHazardHeatmap(hazardCanvas, sites, satelliteData, liveWaterways, hazardMode);
+
+    const allInitialSites = { ...sites };
+    if (customSites && customSites.length > 0) {
+      customSites.forEach((cs) => { allInitialSites[cs.id] = cs; });
+    }
+    renderDynamicHazardHeatmap(hazardCanvas, allInitialSites, satelliteData, liveWaterways, hazardMode);
+
     const hazardTexture = new THREE.CanvasTexture(hazardCanvas);
     hazardTexture.minFilter = THREE.LinearFilter;
     hazardTexture.magFilter = THREE.LinearFilter;
+    hazardTexture.colorSpace = THREE.SRGBColorSpace;
     hazardTextureRef.current = hazardTexture;
+
     const hazardMaterial = new THREE.MeshStandardMaterial({
       map: hazardTexture,
-      roughness: 0.8,
-      metalness: 0.1,
+      roughness: 0.45,
+      metalness: 0.05,
       side: THREE.DoubleSide,
     });
 
@@ -507,7 +517,8 @@ export default function SimulationTerrain3DView({
       hazard: hazardMaterial,
     };
 
-    const terrainMesh = new THREE.Mesh(geo, satMaterial);
+    const initialMat = textureMode === "hazard" ? hazardMaterial : (textureMode === "topo" ? topoMaterial : satMaterial);
+    const terrainMesh = new THREE.Mesh(geo, initialMat);
     terrainMesh.receiveShadow = true;
     terrainMesh.castShadow = true;
     scene.add(terrainMesh);
@@ -520,7 +531,9 @@ export default function SimulationTerrain3DView({
     scene.add(wireMesh);
 
     const normalWaterTex = createFlowingWaterTexture(false);
+    normalWaterTex.colorSpace = THREE.SRGBColorSpace;
     const floodWaterTex = createFlowingWaterTexture(true);
+    floodWaterTex.colorSpace = THREE.SRGBColorSpace;
     normalWaterTexRef.current = normalWaterTex;
     floodWaterTexRef.current = floodWaterTex;
 
@@ -698,14 +711,19 @@ export default function SimulationTerrain3DView({
           const { lat, lng } = threeToGeo(hitPoint.x, hitPoint.z);
           const clampedLat = Math.max(BBOX.minLat + 0.01, Math.min(BBOX.maxLat - 0.01, lat));
           const clampedLng = Math.max(BBOX.minLng + 0.01, Math.min(BBOX.maxLng - 0.01, lng));
+          const allCurrentSites = { ...sites };
+          if (customSites && customSites.length > 0) {
+            customSites.forEach((cs) => { allCurrentSites[cs.id] = cs; });
+          }
           const pointSev = calculatePointSeverity(
             clampedLat,
             clampedLng,
-            sites,
+            allCurrentSites,
             satelliteData,
             liveWaterways,
             hazardMode
           );
+          inspectedCoordsRef.current = { lat: clampedLat, lng: clampedLng, name: "Custom Point (Active Telemetry)" };
           setInspectedPoint({ ...pointSev, name: "Custom Point (Active Telemetry)" });
           onMapClickRef.current(clampedLat, clampedLng);
           if (setIsPickingLocationRef.current) setIsPickingLocationRef.current(false);
@@ -721,6 +739,7 @@ export default function SimulationTerrain3DView({
         if (onSelectSiteRef.current && hitGroup.userData.siteId) {
           onSelectSiteRef.current(hitGroup.userData.siteId);
           setInspectedPoint(null);
+          inspectedCoordsRef.current = null;
         }
         return;
       }
@@ -737,15 +756,21 @@ export default function SimulationTerrain3DView({
             lng >= BBOX.minLng &&
             lng <= BBOX.maxLng
           ) {
+            const allCurrentSites = { ...sites };
+            if (customSites && customSites.length > 0) {
+              customSites.forEach((cs) => { allCurrentSites[cs.id] = cs; });
+            }
             const pointSev = calculatePointSeverity(
               lat,
               lng,
-              sites,
+              allCurrentSites,
               satelliteData,
               liveWaterways,
               hazardMode
             );
-            setInspectedPoint(pointSev);
+            const locationLabel = pointSev.nearestSiteName ? `Terrain Spot (${pointSev.nearestSiteName})` : "Inspected Mountain Sector";
+            inspectedCoordsRef.current = { lat, lng, name: locationLabel };
+            setInspectedPoint({ ...pointSev, name: locationLabel });
           }
         }
       }
@@ -1107,14 +1132,45 @@ export default function SimulationTerrain3DView({
   // weather front shifts, or custom observation nodes are dropped
   useEffect(() => {
     if (hazardCanvasRef.current && hazardTextureRef.current) {
+      const allCurrentSites = { ...sites };
+      if (customSites && customSites.length > 0) {
+        customSites.forEach((cs) => { allCurrentSites[cs.id] = cs; });
+      }
       renderDynamicHazardHeatmap(
         hazardCanvasRef.current,
-        sites,
+        allCurrentSites,
         satelliteData,
         liveWaterways,
         hazardMode
       );
       hazardTextureRef.current.needsUpdate = true;
+      if (meshRef.current?.material) {
+        meshRef.current.material.needsUpdate = true;
+      }
+    }
+  }, [sites, customSites, satelliteData, liveWaterways, hazardMode, textureMode]);
+
+  // 3c. Dynamic Re-evaluation of Inspected Terrain Coordinate when Weather/Timeline Shifts
+  useEffect(() => {
+    if (inspectedCoordsRef.current) {
+      const { lat, lng, name } = inspectedCoordsRef.current;
+      const allCurrentSites = { ...sites };
+      if (customSites && customSites.length > 0) {
+        customSites.forEach((cs) => { allCurrentSites[cs.id] = cs; });
+      }
+      const updated = calculatePointSeverity(
+        lat,
+        lng,
+        allCurrentSites,
+        satelliteData,
+        liveWaterways,
+        hazardMode
+      );
+      setInspectedPoint((prev) => ({
+        ...prev,
+        ...updated,
+        name: name || prev?.name || "Active Telemetry Region",
+      }));
     }
   }, [sites, customSites, satelliteData, liveWaterways, hazardMode]);
 
@@ -1555,6 +1611,7 @@ export default function SimulationTerrain3DView({
                 <button
                   onClick={() => {
                     setInspectedPoint(null);
+                    inspectedCoordsRef.current = null;
                     if (onSelectSite) onSelectSite(null);
                   }}
                   style={{

@@ -67,7 +67,7 @@ export function calculatePointSeverity(
       nearestSite = s;
     }
 
-    const w = 1.0 / Math.pow(distKm + 2.5, 2.0);
+    const w = 1.0 / (Math.pow(distKm, 1.8) + 4.0);
     totalW += w;
     const r1 = s.rainfall_1h_mm ?? s.current_params?.rainfall_1h_mm ?? 1.5;
     const r24 = s.rainfall_24h_mm ?? s.current_params?.rainfall_24h_mm ?? 20;
@@ -75,9 +75,12 @@ export function calculatePointSeverity(
     sumRain24h += r24 * w;
 
     let sSev = 0.15;
-    if (s.stability_state === "UNSTABLE" || s.river_stage_state === "CATASTROPHIC_SURGE") sSev = 0.92;
-    else if (s.stability_state === "MARGINAL" || s.river_stage_state === "OVERBANK_FLOODING") sSev = 0.65;
+    const isUnstable = s.stability_state === "UNSTABLE" || s.river_stage_state === "CATASTROPHIC_SURGE" || (s.factor_of_safety != null && s.factor_of_safety < 1.0);
+    const isMarginal = s.stability_state === "MARGINAL" || s.river_stage_state === "OVERBANK_FLOODING" || (s.factor_of_safety != null && s.factor_of_safety < 1.3);
+    if (isUnstable) sSev = 0.95;
+    else if (isMarginal) sSev = 0.65;
     else if (s.river_stage_state === "BANKFULL_WARNING") sSev = 0.45;
+    else sSev = Math.max(0.12, (s.probability_percent || 15) / 100);
     sumSiteSeverity += sSev * w;
   });
 
@@ -87,22 +90,22 @@ export function calculatePointSeverity(
 
   // 4. Physical Geotechnical Model (Factor of Safety & Landslide Probability)
   const baseFos = 1.95 - (slopeDeg / 45.0) * 0.95;
-  const currentFos = Math.max(0.7, Math.min(2.2, baseFos - (interpRain24h / 150.0) * 0.7));
+  const currentFos = Math.max(0.68, Math.min(2.2, baseFos - (interpRain24h / 140.0) * 0.75));
   let lsProb = 10;
-  if (currentFos < 1.0) lsProb = Math.min(98, Math.round(75 + (1.0 - currentFos) * 65));
-  else if (currentFos < 1.3) lsProb = Math.round(45 + (1.3 - currentFos) * 100);
-  else if (currentFos < 1.5) lsProb = Math.round(20 + (1.5 - currentFos) * 125);
+  if (currentFos < 1.0) lsProb = Math.min(98, Math.round(78 + (1.0 - currentFos) * 65));
+  else if (currentFos < 1.3) lsProb = Math.round(48 + (1.3 - currentFos) * 100);
+  else if (currentFos < 1.5) lsProb = Math.round(22 + (1.5 - currentFos) * 120);
   else lsProb = Math.max(5, Math.round(20 - (currentFos - 1.5) * 20));
 
   // 5. Physical Hydrological Model (River Conveyance & Flood Surge)
-  const isNearRiver = minDistToRiverKm <= 1.5;
+  const isNearRiver = minDistToRiverKm <= 1.8;
   let flProb = 5;
   let riverStage = "NORMAL";
   if (isNearRiver) {
-    const runoffAccumulation = (interpRain24h / 110.0) * Math.max(0, 1.0 - minDistToRiverKm / 1.5);
-    flProb = Math.min(96, Math.max(8, Math.round(runoffAccumulation * 92)));
-    if (flProb >= 75) riverStage = "OVERBANK_FLOODING";
-    else if (flProb >= 45) riverStage = "BANKFULL_WARNING";
+    const runoffAccumulation = (interpRain24h / 100.0) * Math.max(0, 1.0 - minDistToRiverKm / 1.8);
+    flProb = Math.min(98, Math.max(8, Math.round(runoffAccumulation * 95)));
+    if (flProb >= 72) riverStage = "OVERBANK_FLOODING";
+    else if (flProb >= 42) riverStage = "BANKFULL_WARNING";
   }
 
   // 6. Compound Hazard Synthesis
@@ -112,11 +115,15 @@ export function calculatePointSeverity(
   } else if (hazardMode === "flood") {
     compoundScore = flProb / 100.0;
   } else {
-    compoundScore = (Math.max(lsProb, flProb) / 100.0) * 0.72 + (Math.min(lsProb, flProb) / 100.0) * 0.28;
+    // True compound disaster maximum
+    compoundScore = Math.max(lsProb / 100.0, flProb / 100.0);
   }
 
-  if (minSiteDistKm < 3.5) {
-    const alpha = Math.exp(-Math.pow(minSiteDistKm / 2.0, 2));
+  // Blend with local storm pressure from surrounding stations
+  compoundScore = Math.max(compoundScore, interpSiteSev * 0.85);
+
+  if (minSiteDistKm < 10.0) {
+    const alpha = Math.exp(-Math.pow(minSiteDistKm / 5.0, 2));
     compoundScore = compoundScore * (1 - alpha) + interpSiteSev * alpha;
   }
 
@@ -125,7 +132,7 @@ export function calculatePointSeverity(
   let color = "#16a34a";
   let badgeText = "🟢 NOMINAL STABILITY: LOW HAZARD";
 
-  if (compoundScore >= 0.72 || currentFos < 1.0 || riverStage === "OVERBANK_FLOODING") {
+  if (compoundScore >= 0.70 || currentFos < 1.0 || riverStage === "OVERBANK_FLOODING") {
     stabilityState = "UNSTABLE";
     severityBand = "CATASTROPHIC_POTENTIAL";
     color = "#dc2626";
@@ -165,7 +172,7 @@ export function calculatePointSeverity(
 }
 
 /**
- * Renders a physically grounded, continuous thermal hazard heatmap across Sikkim.
+ * Renders a physically grounded, highly responsive continuous thermal hazard heatmap across Sikkim.
  * Computes localized slope failure and river inundation risks for all coordinates,
  * dynamically incorporating active monitored stations and custom dropped pointers.
  */
@@ -198,12 +205,29 @@ export function renderDynamicHazardHeatmap(
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
     const nx = Math.max(0, Math.min(1, (lng - BBOX.minLng) / (BBOX.maxLng - BBOX.minLng)));
     const nz = Math.max(0, Math.min(1, (BBOX.maxLat - lat) / (BBOX.maxLat - BBOX.minLat)));
-    const r24 = s.rainfall_24h_mm ?? s.current_params?.rainfall_24h_mm ?? 20;
-    const isUnstable = s.stability_state === "UNSTABLE" || s.river_stage_state === "CATASTROPHIC_SURGE";
-    const isMarginal = s.stability_state === "MARGINAL" || s.river_stage_state === "OVERBANK_FLOODING";
-    const sScore = isUnstable ? 0.92 : isMarginal ? 0.62 : s.river_stage_state === "BANKFULL_WARNING" ? 0.44 : 0.16;
+    const r24 = s.rainfall_24h_mm ?? s.current_params?.rainfall_24h_mm ?? 15;
+    const isUnstable =
+      s.stability_state === "UNSTABLE" ||
+      s.river_stage_state === "CATASTROPHIC_SURGE" ||
+      (s.factor_of_safety != null && s.factor_of_safety < 1.0);
+    const isMarginal =
+      s.stability_state === "MARGINAL" ||
+      s.river_stage_state === "OVERBANK_FLOODING" ||
+      (s.factor_of_safety != null && s.factor_of_safety < 1.3);
+
+    let sScore = 0.15;
+    if (isUnstable) sScore = 0.95;
+    else if (isMarginal) sScore = 0.65;
+    else if (s.river_stage_state === "BANKFULL_WARNING") sScore = 0.45;
+    else sScore = Math.max(0.12, (s.probability_percent || 15) / 100);
+
     stationList.push({ nx, nz, r24, sScore });
   });
+
+  // Fallback if no sites available
+  if (stationList.length === 0) {
+    stationList.push({ nx: 0.5, nz: 0.5, r24: 15, sScore: 0.15 });
+  }
 
   // 2. Subsample river points for fast channel distance evaluation
   const riverNodes = [];
@@ -220,21 +244,21 @@ export function renderDynamicHazardHeatmap(
     });
   }
 
-  // 3. Render continuous pixel raster
+  // 3. Render continuous pixel raster across the entire terrain
   for (let y = 0; y < height; y++) {
     const nz = y / (height - 1);
     for (let x = 0; x < width; x++) {
       const nx = x / (width - 1);
       const pixelIndex = (y * width + x) * 4;
 
-      // DEM sample & slope
+      // DEM sample & local slope
       const { hMeters } = sampleSatelliteElevation(nx, nz, elevations, gridSize, minElev, maxElev);
       const hX = sampleSatelliteElevation(Math.min(1, nx + 0.02), nz, elevations, gridSize, minElev, maxElev).hMeters;
       const hZ = sampleSatelliteElevation(nx, Math.min(1, nz + 0.02), elevations, gridSize, minElev, maxElev).hMeters;
       const slopeGrad = Math.hypot((hX - hMeters) / 1000, (hZ - hMeters) / 1440);
-      const slopeDeg = Math.max(5, Math.min(54, ((Math.atan(slopeGrad) * 180) / Math.PI) * 3.8));
+      const slopeDeg = Math.max(5, Math.min(54, ((Math.atan(slopeGrad) * 180) / Math.PI) * 3.2));
 
-      // Station IDW weather & calibrated score
+      // Station IDW weather & calibrated score with realistic regional spatial radius
       let wSum = 0.0001;
       let rainSum = 0;
       let scoreSum = 0;
@@ -243,7 +267,8 @@ export function renderDynamicHazardHeatmap(
         const st = stationList[s];
         const d = Math.hypot(nx - st.nx, nz - st.nz);
         if (d < minStationDist) minStationDist = d;
-        const w = 1.0 / ((d + 0.08) * (d + 0.08));
+        // Inverse distance weighting with realistic valley scale (0.15 ~ 8km)
+        const w = 1.0 / (d * d + 0.035);
         wSum += w;
         rainSum += st.r24 * w;
         scoreSum += st.sScore * w;
@@ -258,61 +283,66 @@ export function renderDynamicHazardHeatmap(
         const d = Math.hypot(nx - rn.nx, nz - rn.nz);
         if (d < minRiverDist) {
           minRiverDist = d;
-          if (d < 0.012) break;
+          if (d < 0.01) break;
         }
       }
 
-      // Physical hazard synthesis
-      const slopeFactor = Math.max(0, Math.min(1, (slopeDeg - 14) / 28));
-      const rainFactor = Math.max(0, Math.min(1, localRain / 125));
-      const lsHazard = slopeFactor * (0.28 + 0.72 * rainFactor);
+      // Topographic Vulnerabilities
+      const slopeFactor = Math.max(0.12, Math.min(1.0, (slopeDeg - 10) / 26));
+      const rainFactor = Math.max(0.15, Math.min(1.3, localRain / 85));
+      const lsHazard = localStationScore * (0.35 + 0.65 * slopeFactor) * rainFactor;
 
-      const riverFactor = Math.max(0, 1.0 - minRiverDist / 0.028);
-      const valleyFactor = Math.max(0, 1.0 - (hMeters - minElev) / 3200);
-      const flHazard = riverFactor * valleyFactor * Math.max(0, Math.min(1, localRain / 80));
+      const riverFactor = Math.max(0, 1.0 - minRiverDist / 0.04);
+      const valleyFactor = Math.max(0, 1.0 - (hMeters - minElev) / 2900);
+      const flHazard = localStationScore * (0.3 + 0.7 * (riverFactor * valleyFactor)) * Math.max(0.2, Math.min(1.3, localRain / 70));
 
       let H = 0;
       if (hazardMode === "landslide") H = lsHazard;
       else if (hazardMode === "flood") H = flHazard;
-      else H = Math.max(lsHazard, flHazard) * 0.72 + Math.min(lsHazard, flHazard) * 0.28;
+      else H = Math.max(lsHazard, flHazard);
 
-      if (minStationDist < 0.09) {
-        const alpha = Math.exp(-Math.pow(minStationDist / 0.045, 2));
+      // Smooth direct calibration within immediate vicinity of a station
+      if (minStationDist < 0.16) {
+        const alpha = Math.exp(-Math.pow(minStationDist / 0.08, 2));
         H = H * (1 - alpha) + localStationScore * alpha;
       }
-      H = Math.max(0.02, Math.min(0.98, H));
+      H = Math.max(0.04, Math.min(0.98, H));
 
-      // Continuous 4-color thermal palette
+      // Luminous 4-color thermal palette
       let red = 22;
       let green = 163;
       let blue = 74;
 
-      if (H < 0.25) {
-        const t = H / 0.25;
-        red = Math.round(22 + (101 - 22) * t);
-        green = Math.round(163 + (163 - 163) * t);
-        blue = Math.round(74 + (13 - 74) * t);
-      } else if (H < 0.5) {
-        const t = (H - 0.25) / 0.25;
-        red = Math.round(101 + (234 - 101) * t);
-        green = Math.round(163 + (179 - 163) * t);
-        blue = Math.round(13 + (8 - 13) * t);
-      } else if (H < 0.75) {
-        const t = (H - 0.5) / 0.25;
-        red = Math.round(234 + (234 - 234) * t);
-        green = Math.round(179 + (88 - 179) * t);
-        blue = Math.round(8 + (12 - 8) * t);
+      if (H < 0.28) {
+        // Lush Forest Green (#16a34a -> #22c55e)
+        const t = H / 0.28;
+        red = Math.round(22 + (34 - 22) * t);
+        green = Math.round(163 + (197 - 163) * t);
+        blue = Math.round(74 + (94 - 74) * t);
+      } else if (H < 0.52) {
+        // Bright Amber-Yellow (#eab308 -> #f59e0b)
+        const t = (H - 0.28) / 0.24;
+        red = Math.round(34 + (234 - 34) * t);
+        green = Math.round(197 + (179 - 197) * t);
+        blue = Math.round(94 + (8 - 94) * t);
+      } else if (H < 0.74) {
+        // Warning Orange (#f97316 -> #ea580c)
+        const t = (H - 0.52) / 0.22;
+        red = Math.round(234 + (249 - 234) * t);
+        green = Math.round(179 + (115 - 179) * t);
+        blue = Math.round(8 + (22 - 8) * t);
       } else {
-        const t = (H - 0.75) / 0.25;
-        red = Math.round(234 + (185 - 234) * t);
-        green = Math.round(88 + (28 - 88) * t);
-        blue = Math.round(12 + (28 - 12) * t);
+        // Critical Crimson Red (#dc2626 -> #991b1b)
+        const t = (H - 0.74) / 0.26;
+        red = Math.round(249 + (220 - 249) * t);
+        green = Math.round(115 + (38 - 115) * t);
+        blue = Math.round(22 + (38 - 22) * t);
       }
 
       data[pixelIndex] = red;
       data[pixelIndex + 1] = green;
       data[pixelIndex + 2] = blue;
-      data[pixelIndex + 3] = 225; // 88% alpha
+      data[pixelIndex + 3] = 238; // 93% opacity for vibrant color
     }
   }
 

@@ -505,11 +505,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 27915743,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 13.42,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 27915743,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-27915772",
@@ -1297,11 +1296,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 27915772,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 0.14,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 27915772,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-38936959",
@@ -3065,11 +3063,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 38936959,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 0.35,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 38936959,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-44029110",
@@ -3821,11 +3818,10 @@
       ]
     ],
     "nearLocationId": "LOC03",
-    "osm_id": 44029110,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 13.19,
+    "minDistanceKm": 13.22,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 44029110,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-126757759",
@@ -4393,11 +4389,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 126757759,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 6.83,
+    "minDistanceKm": 6.84,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 126757759,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-126757760",
@@ -4685,11 +4680,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 126757760,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 0.15,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 126757760,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-126757761",
@@ -5613,11 +5607,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 126757761,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 0.56,
+    "minDistanceKm": 0.57,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 126757761,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-126757764",
@@ -6105,11 +6098,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 126757764,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 0.57,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 126757764,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-126757765",
@@ -6341,11 +6333,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 126757765,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 1.07,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 126757765,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-126757766",
@@ -7673,11 +7664,10 @@
       ]
     ],
     "nearLocationId": "LOC03",
-    "osm_id": 126757766,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 3.31,
+    "minDistanceKm": 3.32,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 126757766,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-126757767",
@@ -8309,11 +8299,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 126757767,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 0.94,
+    "minDistanceKm": 0.95,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 126757767,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-129735607",
@@ -9301,11 +9290,10 @@
       ]
     ],
     "nearLocationId": "LOC05",
-    "osm_id": 129735607,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 0.36,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 129735607,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-129842068",
@@ -10561,11 +10549,10 @@
       ]
     ],
     "nearLocationId": "LOC05",
-    "osm_id": 129842068,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 11.77,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 129842068,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-129847856",
@@ -10645,11 +10632,10 @@
       ]
     ],
     "nearLocationId": "LOC05",
-    "osm_id": 129847856,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 11.28,
+    "minDistanceKm": 11.29,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 129847856,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-133298976",
@@ -13129,11 +13115,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 133298976,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 0.35,
     "isDownstreamTeesta": true,
-    "isTeestaMainStem": true
+    "osm_id": 133298976,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-134410501",
@@ -13205,11 +13190,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 134410501,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 9.8,
+    "minDistanceKm": 9.82,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 134410501,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-134410503",
@@ -13321,11 +13305,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 134410503,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 5.77,
+    "minDistanceKm": 5.78,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 134410503,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-134410516",
@@ -13517,11 +13500,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 134410516,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 5.8,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 134410516,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-134410517",
@@ -13769,11 +13751,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 134410517,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 20.41,
+    "minDistanceKm": 20.43,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 134410517,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-134410518",
@@ -14005,11 +13986,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 134410518,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 4.27,
+    "minDistanceKm": 4.28,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 134410518,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-134410519",
@@ -14413,11 +14393,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 134410519,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 11.18,
+    "minDistanceKm": 11.21,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 134410519,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-134417407",
@@ -15941,11 +15920,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 134417407,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 15.65,
+    "minDistanceKm": 15.67,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 134417407,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-170015107",
@@ -17913,11 +17891,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 170015107,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 0.25,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 170015107,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-192599614",
@@ -18381,11 +18358,10 @@
       ]
     ],
     "nearLocationId": "LOC03",
-    "osm_id": 192599614,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 34.39,
+    "minDistanceKm": 34.43,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 192599614,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-193281483",
@@ -18993,11 +18969,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 193281483,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 21.33,
+    "minDistanceKm": 21.38,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 193281483,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-193282162",
@@ -19477,11 +19452,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 193282162,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 17.77,
+    "minDistanceKm": 17.81,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 193282162,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-193282428",
@@ -20617,11 +20591,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 193282428,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 8.71,
+    "minDistanceKm": 8.73,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 193282428,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-293179605",
@@ -20997,11 +20970,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 293179605,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 15.17,
+    "minDistanceKm": 15.18,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 293179605,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-293181244",
@@ -21125,11 +21097,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 293181244,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 13.4,
+    "minDistanceKm": 13.41,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 293181244,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-293185705",
@@ -24593,11 +24564,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 293185705,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 3.86,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 293185705,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-349529615",
@@ -28689,11 +28659,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 349529615,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 8.31,
+    "minDistanceKm": 8.33,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 349529615,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-349530989",
@@ -29197,11 +29166,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 349530989,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 6.28,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 349530989,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-353285071",
@@ -29741,11 +29709,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 353285071,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 15.11,
+    "minDistanceKm": 15.1,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 353285071,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-366840799",
@@ -30577,11 +30544,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 366840799,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 0.41,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 366840799,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-397609112",
@@ -31453,11 +31419,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 397609112,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 8.09,
+    "minDistanceKm": 8.08,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 397609112,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-397609113",
@@ -32585,11 +32550,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 397609113,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 11.66,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 397609113,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-416534058",
@@ -32929,11 +32893,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 416534058,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 9.32,
+    "minDistanceKm": 9.33,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 416534058,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-416534059",
@@ -33381,11 +33344,10 @@
       ]
     ],
     "nearLocationId": "LOC05",
-    "osm_id": 416534059,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 10.84,
+    "minDistanceKm": 10.85,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 416534059,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-422074769",
@@ -33849,11 +33811,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 422074769,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 14.44,
+    "minDistanceKm": 14.43,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 422074769,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-461631686",
@@ -34573,11 +34534,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 461631686,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 8.26,
+    "minDistanceKm": 8.27,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 461631686,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-481835020",
@@ -34625,11 +34585,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 481835020,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 3.86,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 481835020,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-511817215",
@@ -36641,11 +36600,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 511817215,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 11.18,
     "isDownstreamTeesta": true,
-    "isTeestaMainStem": true
+    "osm_id": 511817215,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-589642700",
@@ -38093,11 +38051,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 589642700,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 11.18,
+    "minDistanceKm": 11.19,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 589642700,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-589648686",
@@ -39589,11 +39546,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 589648686,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 16.38,
+    "minDistanceKm": 16.39,
     "isDownstreamTeesta": true,
-    "isTeestaMainStem": true
+    "osm_id": 589648686,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-591346642",
@@ -41833,11 +41789,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 591346642,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 17.41,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 591346642,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-599006002",
@@ -46669,11 +46624,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 599006002,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 19.32,
+    "minDistanceKm": 19.35,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 599006002,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-599734513",
@@ -47633,11 +47587,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 599734513,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 6.31,
+    "minDistanceKm": 6.32,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 599734513,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-599734535",
@@ -48333,11 +48286,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 599734535,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 12.52,
+    "minDistanceKm": 12.54,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 599734535,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-599734539",
@@ -48513,11 +48465,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 599734539,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 12.52,
+    "minDistanceKm": 12.54,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 599734539,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-599734542",
@@ -49105,11 +49056,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 599734542,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 14.94,
+    "minDistanceKm": 14.96,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 599734542,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-599775741",
@@ -49681,11 +49631,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 599775741,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 6.8,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 599775741,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-605893240",
@@ -50193,11 +50142,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 605893240,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 7.5,
     "isDownstreamTeesta": true,
-    "isTeestaMainStem": true
+    "osm_id": 605893240,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-606456170",
@@ -50769,11 +50717,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 606456170,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 15.94,
+    "minDistanceKm": 15.93,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 606456170,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-608043232",
@@ -52161,11 +52108,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 608043232,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 21.34,
+    "minDistanceKm": 21.37,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 608043232,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-608043444",
@@ -54741,11 +54687,10 @@
       ]
     ],
     "nearLocationId": "LOC05",
-    "osm_id": 608043444,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 22.89,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 608043444,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-608047999",
@@ -55609,11 +55554,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 608047999,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 24.39,
+    "minDistanceKm": 24.38,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 608047999,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-696120410",
@@ -55729,11 +55673,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 696120410,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 22.19,
+    "minDistanceKm": 22.22,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 696120410,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-696697549",
@@ -55857,11 +55800,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 696697549,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 15.84,
+    "minDistanceKm": 15.86,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 696697549,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1013920660",
@@ -56221,11 +56163,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 1013920660,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 13.55,
+    "minDistanceKm": 13.56,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 1013920660,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1214346397",
@@ -57577,11 +57518,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1214346397,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 22.55,
+    "minDistanceKm": 22.57,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1214346397,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1214529089",
@@ -57637,11 +57577,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1214529089,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 14.66,
+    "minDistanceKm": 14.68,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1214529089,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1214531821",
@@ -57689,11 +57628,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1214531821,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 14.35,
+    "minDistanceKm": 14.36,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1214531821,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1214531822",
@@ -57721,11 +57659,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1214531822,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 14.22,
+    "minDistanceKm": 14.24,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1214531822,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1214539855",
@@ -57745,11 +57682,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1214539855,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 24.9,
+    "minDistanceKm": 24.98,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1214539855,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1214968882",
@@ -57781,11 +57717,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 1214968882,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 0.43,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1214968882,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1214968883",
@@ -57801,11 +57736,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 1214968883,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 0.82,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1214968883,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1215115447",
@@ -58081,11 +58015,10 @@
       ]
     ],
     "nearLocationId": "LOC03",
-    "osm_id": 1215115447,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 5.08,
+    "minDistanceKm": 5.09,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1215115447,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1215118081",
@@ -58157,11 +58090,10 @@
       ]
     ],
     "nearLocationId": "LOC03",
-    "osm_id": 1215118081,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 7.35,
+    "minDistanceKm": 7.37,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1215118081,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1215121671",
@@ -58481,11 +58413,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1215121671,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 20.44,
+    "minDistanceKm": 20.46,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1215121671,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1215121672",
@@ -58817,11 +58748,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1215121672,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 20.31,
+    "minDistanceKm": 20.34,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1215121672,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1215121673",
@@ -58909,11 +58839,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1215121673,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 20.27,
+    "minDistanceKm": 20.3,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1215121673,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1215121674",
@@ -58997,11 +58926,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1215121674,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 20.37,
+    "minDistanceKm": 20.39,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1215121674,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1215121675",
@@ -59041,11 +58969,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1215121675,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 20.4,
+    "minDistanceKm": 20.42,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1215121675,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1215121676",
@@ -59117,11 +59044,10 @@
       ]
     ],
     "nearLocationId": "LOC04",
-    "osm_id": 1215121676,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 20.38,
+    "minDistanceKm": 20.4,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1215121676,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1215124462",
@@ -59173,11 +59099,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 1215124462,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 7.54,
+    "minDistanceKm": 7.56,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1215124462,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1215124463",
@@ -59233,11 +59158,10 @@
       ]
     ],
     "nearLocationId": "LOC01",
-    "osm_id": 1215124463,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 7.25,
+    "minDistanceKm": 7.27,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1215124463,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1223620356",
@@ -59481,11 +59405,10 @@
       ]
     ],
     "nearLocationId": "LOC03",
-    "osm_id": 1223620356,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 24.22,
+    "minDistanceKm": 24.25,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1223620356,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1249023071",
@@ -59705,11 +59628,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 1249023071,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 14.07,
+    "minDistanceKm": 14.06,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1249023071,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1249023072",
@@ -59957,11 +59879,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 1249023072,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 13.33,
+    "minDistanceKm": 13.32,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1249023072,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1249883419",
@@ -60469,11 +60390,10 @@
       ]
     ],
     "nearLocationId": "LOC05",
-    "osm_id": 1249883419,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 9.11,
+    "minDistanceKm": 9.12,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1249883419,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1258441150",
@@ -60589,11 +60509,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 1258441150,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 8.1,
+    "minDistanceKm": 8.11,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1258441150,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1260709475",
@@ -60617,11 +60536,10 @@
       ]
     ],
     "nearLocationId": "LOC03",
-    "osm_id": 1260709475,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 8.6,
+    "minDistanceKm": 8.61,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1260709475,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1262403000",
@@ -60777,11 +60695,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 1262403000,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 13.33,
+    "minDistanceKm": 13.32,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1262403000,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1273789936",
@@ -60825,11 +60742,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 1273789936,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 7.43,
     "isDownstreamTeesta": true,
-    "isTeestaMainStem": true
+    "osm_id": 1273789936,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1273789937",
@@ -61209,11 +61125,10 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "osm_id": 1273789937,
-    "category": "Live OpenStreetMap Waterway",
     "minDistanceKm": 6.37,
     "isDownstreamTeesta": true,
-    "isTeestaMainStem": true
+    "osm_id": 1273789937,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1350954818",
@@ -61441,11 +61356,10 @@
       ]
     ],
     "nearLocationId": "LOC03",
-    "osm_id": 1350954818,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 16.16,
+    "minDistanceKm": 16.18,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1350954818,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1389852120",
@@ -61661,11 +61575,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 1389852120,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 21.39,
+    "minDistanceKm": 21.42,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1389852120,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1389852121",
@@ -61725,11 +61638,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 1389852121,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 20.27,
+    "minDistanceKm": 20.3,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1389852121,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1389852122",
@@ -61793,11 +61705,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 1389852122,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 19.54,
+    "minDistanceKm": 19.56,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": true
+    "osm_id": 1389852122,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "osm-river-1414143362",
@@ -63121,11 +63032,10 @@
       ]
     ],
     "nearLocationId": "LOC02",
-    "osm_id": 1414143362,
-    "category": "Live OpenStreetMap Waterway",
-    "minDistanceKm": 19.28,
+    "minDistanceKm": 19.3,
     "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "osm_id": 1414143362,
+    "category": "Live OpenStreetMap Waterway"
   },
   {
     "id": "teesta-south-melli-reach",
@@ -63165,10 +63075,7 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "category": "Southern Boundary Flash Flood Plain",
-    "minDistanceKm": 0.12,
-    "isDownstreamTeesta": true,
-    "isTeestaMainStem": true
+    "category": "Southern Boundary Flash Flood Plain"
   },
   {
     "id": "rangpo-chu-border",
@@ -63192,9 +63099,6 @@
       ]
     ],
     "nearLocationId": "LOC06",
-    "category": "Border Confluence Reach",
-    "minDistanceKm": 0.12,
-    "isDownstreamTeesta": false,
-    "isTeestaMainStem": false
+    "category": "Border Confluence Reach"
   }
 ]
