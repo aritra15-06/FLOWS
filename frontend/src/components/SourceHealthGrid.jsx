@@ -114,10 +114,13 @@ export default function SourceHealthGrid() {
     <div
       className="sources-panel"
       style={{
-        minHeight: 'calc(100vh - 60px)',
+        height: 'calc(100vh - 56px)',
+        maxHeight: 'calc(100vh - 56px)',
         width: '100%',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         background: 'var(--bg-primary)',
-        padding: '24px 32px',
+        padding: '24px 32px 60px 32px',
         color: 'var(--text-primary)',
         boxSizing: 'border-box',
       }}
