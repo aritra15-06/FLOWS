@@ -132,21 +132,26 @@ export function calculatePointSeverity(
   let color = "#16a34a";
   let badgeText = "🟢 NOMINAL STABILITY: LOW HAZARD";
 
-  if (compoundScore >= 0.70 || currentFos < 1.0 || riverStage === "OVERBANK_FLOODING") {
+  if (compoundScore >= 0.70 || currentFos < 1.0 || riverStage === "OVERBANK_FLOODING" || riverStage === "CATASTROPHIC_SURGE") {
     stabilityState = "UNSTABLE";
     severityBand = "CATASTROPHIC_POTENTIAL";
     color = "#dc2626";
     badgeText = "🚨 CRITICAL SEVERITY: FAILURE IMMINENT";
-  } else if (compoundScore >= 0.48 || currentFos < 1.3 || riverStage === "BANKFULL_WARNING") {
+  } else if (compoundScore >= 0.48 || currentFos < 1.25 || riverStage === "BANKFULL_WARNING") {
     stabilityState = "MARGINAL";
     severityBand = "MAJOR";
     color = "#ea580c";
-    badgeText = "⚠️ MAJOR WARNING: ELEVATED THREAT";
-  } else if (compoundScore >= 0.26 || currentFos < 1.5) {
-    stabilityState = "MARGINAL";
+    badgeText = "⚠️ MAJOR WARNING: DEGRADED STABILITY";
+  } else if (compoundScore >= 0.32 || lsProb >= 35 || (currentFos < 1.35 && interpRain24h >= 40)) {
+    stabilityState = "ADVISORY";
     severityBand = "MODERATE";
     color = "#eab308";
     badgeText = "⚡ MODERATE ADVISORY: MONITORING";
+  } else {
+    stabilityState = "STABLE";
+    severityBand = "MINOR";
+    color = "#16a34a";
+    badgeText = "🟢 NOMINAL STABILITY: LOW HAZARD";
   }
 
   return {

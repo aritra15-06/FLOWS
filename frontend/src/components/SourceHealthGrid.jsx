@@ -111,68 +111,112 @@ export default function SourceHealthGrid() {
   const liveCount = sources.filter(s => s.status && (s.status.startsWith('LIVE') || s.status.startsWith('ONLINE'))).length;
 
   return (
-    <div className="sources-panel" style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', color: '#ffffff' }}>
-      {/* Header */}
-      <div className="sources-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h2 style={{ fontSize: '1.65rem', fontWeight: 800, margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '10px', color: '#ffffff' }}>
-            <span>📡</span> Live External API Health Monitor
-          </h2>
-          <p className="sources-sub" style={{ margin: 0, color: '#e2e8f0', fontSize: '0.96rem' }}>
-            Real-time status, round-trip latency, and endpoints for the 5 live external APIs actively queried by FLOWS
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-          <div className="sources-summary" style={{ display: 'flex', gap: '10px' }}>
-            <span className="src-sum-item" style={{
-              background: '#052e16',
-              color: '#4ade80',
-              padding: '7px 14px',
-              borderRadius: '8px',
-              fontWeight: 700,
-              fontSize: '0.88rem',
-              border: '1px solid #166534'
-            }}>
-              ● {liveCount} / {sources.length} OPERATIONAL
-            </span>
-            <span className="src-sum-item" style={{
-              background: '#082f49',
-              color: '#38bdf8',
-              padding: '7px 14px',
-              borderRadius: '8px',
-              fontWeight: 700,
-              fontSize: '0.88rem',
-              border: '1px solid #0369a1'
-            }}>
-              🔓 100% KEYLESS APIS
-            </span>
+    <div
+      className="sources-panel"
+      style={{
+        minHeight: 'calc(100vh - 60px)',
+        width: '100%',
+        background: '#080d1a',
+        padding: '24px 32px',
+        color: '#ffffff',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div style={{ maxWidth: '1440px', width: '100%', margin: '0 auto' }}>
+        {/* Header Hero Banner */}
+        <div
+          className="sources-header"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '24px',
+            flexWrap: 'wrap',
+            gap: '16px',
+            background: '#0f172a',
+            border: '1px solid #1e293b',
+            padding: '22px 26px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35)',
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                fontSize: '1.65rem',
+                fontWeight: 800,
+                margin: '0 0 6px 0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: '#ffffff',
+              }}
+            >
+              <span style={{ fontSize: '1.75rem' }}>📡</span> Live External API Health Monitor
+            </h2>
+            <p
+              className="sources-sub"
+              style={{
+                margin: 0,
+                color: '#cbd5e1',
+                fontSize: '0.96rem',
+                fontWeight: 500,
+              }}
+            >
+              Real-time status, round-trip latency, and endpoints for the 5 live external APIs actively queried by FLOWS
+            </p>
           </div>
 
-          <button
-            onClick={() => fetchLiveSources(true)}
-            disabled={isRefreshing}
-            style={{
-              background: isRefreshing ? '#1d4ed8' : '#2563eb',
-              color: '#ffffff',
-              border: '1px solid #3b82f6',
-              borderRadius: '8px',
-              padding: '8px 18px',
-              fontSize: '0.9rem',
-              fontWeight: 700,
-              cursor: isRefreshing ? 'wait' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 2px 8px rgba(37,99,235,0.4)',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <span>{isRefreshing ? '⏳' : '🔄'}</span>
-            <span>{isRefreshing ? 'Probing Endpoints...' : 'Ping Live APIs'}</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <div className="sources-summary" style={{ display: 'flex', gap: '10px' }}>
+              <span className="src-sum-item" style={{
+                background: '#052e16',
+                color: '#4ade80',
+                padding: '7px 14px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                border: '1px solid #166534'
+              }}>
+                ● {liveCount} / {sources.length} OPERATIONAL
+              </span>
+              <span className="src-sum-item" style={{
+                background: '#082f49',
+                color: '#38bdf8',
+                padding: '7px 14px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                border: '1px solid #0369a1'
+              }}>
+                🔓 100% KEYLESS APIS
+              </span>
+            </div>
+
+            <button
+              onClick={() => fetchLiveSources(true)}
+              disabled={isRefreshing}
+              style={{
+                background: isRefreshing ? '#1d4ed8' : '#2563eb',
+                color: '#ffffff',
+                border: '1px solid #3b82f6',
+                borderRadius: '8px',
+                padding: '8px 18px',
+                fontSize: '0.9rem',
+                fontWeight: 700,
+                cursor: isRefreshing ? 'wait' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 8px rgba(37,99,235,0.4)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span>{isRefreshing ? '⏳' : '🔄'}</span>
+              <span>{isRefreshing ? 'Probing Endpoints...' : 'Ping Live APIs'}</span>
+            </button>
+          </div>
         </div>
-      </div>
 
       {/* Architecture Transparency Banner (Dark Solid Background with Pure White Text) */}
       <div style={{
@@ -368,6 +412,7 @@ export default function SourceHealthGrid() {
         <div style={{ color: '#ffffff' }}>
           Last Checked: {lastCheckTime}
         </div>
+      </div>
       </div>
     </div>
   );

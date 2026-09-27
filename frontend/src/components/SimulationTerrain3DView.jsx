@@ -1531,36 +1531,48 @@ export default function SimulationTerrain3DView({
           const rain24h = activeData?.rainfall_24h_mm ?? 0;
 
           let sevTitle = "🟢 NOMINAL STABILITY: LOW HAZARD";
-          let sevBg = "rgba(22, 163, 74, 0.22)";
-          let sevBorder = "#16a34a";
+          let sevBg = "rgba(34, 197, 94, 0.18)";
+          let sevBorder = "#22c55e";
           let sevText = "#4ade80";
 
-          if (
+          const isCritical =
             sevBand === "CATASTROPHIC_POTENTIAL" ||
             stability === "UNSTABLE" ||
             stage === "OVERBANK_FLOODING" ||
             stage === "CATASTROPHIC_SURGE" ||
-            (fos != null && fos < 1.0)
-          ) {
-            sevTitle = "🚨 CRITICAL SEVERITY: SLOPE FAILURE IMMINENT";
-            sevBg = "rgba(220, 38, 38, 0.24)";
-            sevBorder = "#dc2626";
-            sevText = "#f87171";
-          } else if (
-            sevBand === "MAJOR" ||
-            stability === "MARGINAL" ||
-            stage === "BANKFULL_WARNING" ||
-            (fos != null && fos < 1.3)
-          ) {
+            (fos != null && fos < 1.0) ||
+            lsProb >= 75;
+
+          const isMajor =
+            !isCritical &&
+            (sevBand === "MAJOR" ||
+              stability === "MARGINAL" ||
+              stage === "BANKFULL_WARNING" ||
+              (fos != null && fos < 1.25) ||
+              lsProb >= 48);
+
+          const isModerate =
+            !isCritical &&
+            !isMajor &&
+            (sevBand === "MODERATE" ||
+              lsProb >= 35 ||
+              (fos != null && fos < 1.35 && rain24h >= 40));
+
+          if (isCritical) {
+            sevTitle = "🚨 CRITICAL SEVERITY: FAILURE IMMINENT";
+            sevBg = "rgba(220, 38, 38, 0.22)";
+            sevBorder = "#ef4444";
+            sevText = "#fca5a5";
+          } else if (isMajor) {
             sevTitle = "⚠️ MAJOR WARNING: DEGRADED STABILITY";
-            sevBg = "rgba(234, 88, 12, 0.24)";
-            sevBorder = "#ea580c";
-            sevText = "#fb923c";
-          } else if (sevBand === "MODERATE" || lsProb > 30 || (fos != null && fos < 1.5)) {
+            sevBg = "rgba(234, 88, 12, 0.22)";
+            sevBorder = "#f97316";
+            sevText = "#fdba74";
+          } else if (isModerate) {
             sevTitle = "⚡ MODERATE ADVISORY: ELEVATED THREAT";
-            sevBg = "rgba(202, 138, 4, 0.24)";
-            sevBorder = "#ca8a04";
-            sevText = "#facc15";
+            sevBg = "rgba(234, 179, 8, 0.20)";
+            sevBorder = "#eab308";
+            sevText = "#fef08a";
           }
 
           return (
@@ -1569,7 +1581,7 @@ export default function SimulationTerrain3DView({
                 position: "absolute",
                 top: 56,
                 right: 14,
-                width: 320,
+                width: 335,
                 background: "rgba(15, 23, 42, 0.94)",
                 backdropFilter: "blur(12px)",
                 border: `1px solid ${sevBorder}`,
@@ -1640,27 +1652,19 @@ export default function SimulationTerrain3DView({
                 style={{
                   background: sevBg,
                   border: `1px solid ${sevBorder}`,
-                  borderRadius: 6,
-                  padding: "6px 9px",
-                  fontWeight: 700,
-                  fontSize: "0.72rem",
+                  borderRadius: 7,
+                  padding: "7px 11px",
+                  fontWeight: 800,
+                  fontSize: "0.75rem",
                   color: sevText,
                   marginBottom: 10,
                   display: "flex",
                   alignItems: "center",
-                  gap: 7,
+                  gap: 6,
+                  lineHeight: 1.35,
+                  boxShadow: `0 2px 10px ${sevBg}`,
                 }}
               >
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: sevBorder,
-                    display: "inline-block",
-                    flexShrink: 0,
-                  }}
-                />
                 <span>{sevTitle}</span>
               </div>
 
